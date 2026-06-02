@@ -1,0 +1,56 @@
+{
+  "name": "NewCoin Radar — 新規上場コイン分析",
+  "short_name": "NewCoin Radar",
+  "description": "新規上場コインをClaude AI・ChatGPT・Coinglass・CoinMarketCap・Bitgetで多角分析するツール",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#020408",
+  "theme_color": "#00d4ff",
+  "orientation": "portrait-primary",
+  "lang": "ja",
+  "categories": [
+    "finance",
+    "utilities"
+  ],
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "screenshots": [],
+  "shortcuts": [
+    {
+      "name": "分析開始",
+      "short_name": "分析",
+      "description": "コイン分析を即座に開始",
+      "url": "./index.html#home",
+      "icons": [
+        {
+          "src": "icon-192.png",
+          "sizes": "192x192"
+        }
+      ]
+    },
+    {
+      "name": "オートトレード",
+      "short_name": "AutoTrade",
+      "description": "自動トレードシステム",
+      "url": "./autotrade.html",
+      "icons": [
+        {
+          "src": "icon-192.png",
+          "sizes": "192x192"
+        }
+      ]
+    }
+  ]
+}
