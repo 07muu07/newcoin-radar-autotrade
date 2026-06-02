@@ -1,0 +1,1 @@
+# newcoin-radar-autotrade
