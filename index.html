@@ -1,0 +1,2693 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
+  <!-- v2.1 -->
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#0a0f1a">
+<title>AutoTrade — NewCoin Radar</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=JetBrains+Mono:wght@300;400;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+/* ═══════════════════════════════════════════════════════
+   DESIGN: Mission Control / Trading Terminal Dark
+   Tone: Hyper-functional, industrial precision, military-grade UI
+════════════════════════════════════════════════════════ */
+:root {
+  --bg:       #060b14;
+  --bg2:      #0a1120;
+  --panel:    #0d1828;
+  --card:     #111f30;
+  --border:   #1c3048;
+  --border2:  #254060;
+  --accent:   #00e5ff;
+  --green:    #00ff88;
+  --red:      #ff3355;
+  --gold:     #ffd700;
+  --purple:   #bd93f9;
+  --orange:   #ffb347;
+  --text:     #cce8ff;
+  --muted:    #4a6a8a;
+  --hdr:      52px;
+  --nav:      60px;
+  --safe:     env(safe-area-inset-bottom, 0px);
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+html, body {
+  height: 100%; overflow: hidden;
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'JetBrains Mono', monospace;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Scanline overlay */
+body::before {
+  content: '';
+  position: fixed; inset: 0;
+  background: repeating-linear-gradient(
+    0deg, transparent, transparent 2px,
+    rgba(0,229,255,0.012) 2px, rgba(0,229,255,0.012) 4px
+  );
+  pointer-events: none; z-index: 0;
+}
+
+/* Corner brackets decoration */
+.bracket-wrap {
+  position: relative;
+}
+.bracket-wrap::before, .bracket-wrap::after {
+  content: '';
+  position: absolute;
+  width: 10px; height: 10px;
+  border-color: var(--accent);
+  border-style: solid;
+  opacity: 0.5;
+}
+.bracket-wrap::before { top: -1px; left: -1px; border-width: 2px 0 0 2px; }
+.bracket-wrap::after  { top: -1px; right: -1px; border-width: 2px 2px 0 0; }
+
+/* ── HEADER ── */
+.hdr {
+  position: fixed; top: 0; left: 0; right: 0;
+  height: var(--hdr);
+  background: rgba(6,11,20,0.97);
+  backdrop-filter: blur(20px);
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center;
+  justify-content: space-between;
+  padding: 0 14px; z-index: 100;
+}
+.logo-area { display: flex; align-items: center; gap: 8px; }
+.logo-text {
+  font-family: 'Orbitron', monospace;
+  font-size: 13px; font-weight: 900;
+  letter-spacing: 2px;
+  background: linear-gradient(90deg, var(--accent), var(--green));
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+}
+.logo-sub { font-size: 8px; color: var(--muted); letter-spacing: 1px; text-transform: uppercase; }
+
+/* System status */
+.sys-status { display: flex; align-items: center; gap: 8px; }
+.status-pill {
+  display: flex; align-items: center; gap: 5px;
+  background: var(--panel); border: 1px solid var(--border);
+  border-radius: 4px; padding: 4px 8px;
+  font-size: 9px; letter-spacing: 1px; text-transform: uppercase;
+}
+.status-pill.running { border-color: var(--green); color: var(--green); }
+.status-pill.stopped { border-color: var(--red); color: var(--red); }
+.status-pill.standby { border-color: var(--gold); color: var(--gold); }
+.sdot { width: 5px; height: 5px; border-radius: 50%; }
+.sdot.r { background: var(--green); box-shadow: 0 0 6px var(--green); animation: blink2 1s ease infinite; }
+.sdot.s { background: var(--red); }
+.sdot.w { background: var(--gold); box-shadow: 0 0 6px var(--gold); }
+@keyframes blink2 { 0%,100%{opacity:1} 50%{opacity:.3} }
+
+/* Master switch */
+.master-sw {
+  width: 44px; height: 24px;
+  background: var(--panel); border: 1px solid var(--border);
+  border-radius: 12px; position: relative; cursor: pointer;
+  transition: all .3s;
+}
+.master-sw.on { background: rgba(0,255,136,.15); border-color: var(--green); }
+.master-sw::after {
+  content: '';
+  position: absolute; top: 3px; left: 3px;
+  width: 16px; height: 16px;
+  border-radius: 50%; background: var(--muted);
+  transition: all .3s;
+}
+.master-sw.on::after { left: 23px; background: var(--green); box-shadow: 0 0 8px var(--green); }
+
+/* ── SCROLL WRAP ── */
+.wrap {
+  position: fixed;
+  top: var(--hdr); left: 0; right: 0;
+  bottom: calc(var(--nav) + var(--safe));
+  overflow-y: auto; overflow-x: hidden;
+  -webkit-overflow-scrolling: touch; z-index: 1;
+}
+
+/* ── BOTTOM NAV ── */
+.bnav {
+  position: fixed; bottom: 0; left: 0; right: 0;
+  height: calc(var(--nav) + var(--safe));
+  padding-bottom: var(--safe);
+  background: rgba(6,11,20,.97);
+  backdrop-filter: blur(20px);
+  border-top: 1px solid var(--border);
+  display: flex; z-index: 100;
+}
+.ni {
+  flex: 1; display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  gap: 3px; cursor: pointer; padding: 8px 4px;
+  position: relative; transition: all .2s;
+}
+.ni::before {
+  content: ''; position: absolute;
+  top: 0; left: 20%; right: 20%;
+  height: 2px; background: var(--accent);
+  border-radius: 0 0 2px 2px;
+  transform: scaleX(0); transition: transform .2s;
+}
+.ni.active::before { transform: scaleX(1); }
+.ni:active { background: rgba(0,229,255,.05); }
+.nicon { font-size: 17px; line-height: 1; }
+.nlabel { font-size: 8px; color: var(--muted); letter-spacing: .8px; text-transform: uppercase; }
+.ni.active .nlabel { color: var(--accent); }
+
+/* ── PAGES ── */
+.pg { display: none; padding: 10px; }
+.pg.active { display: block; }
+
+/* ── CARDS ── */
+.card {
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: 8px; margin-bottom: 10px; overflow: hidden;
+  position: relative;
+}
+.card::before {
+  content: ''; position: absolute; top: 0; left: 0; right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--accent), transparent);
+  opacity: .4;
+}
+.ch { /* card header */
+  padding: 10px 12px; border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between;
+  background: rgba(0,229,255,.02);
+}
+.ct { /* card title */
+  font-family: 'Orbitron', monospace; font-size: 9px;
+  letter-spacing: 2px; color: var(--accent); text-transform: uppercase;
+}
+.cb { padding: 12px; } /* card body */
+
+/* ── METRICS ROW ── */
+.metrics-row { display: grid; grid-template-columns: repeat(3,1fr); gap: 8px; margin-bottom: 10px; }
+.met {
+  background: var(--panel); border: 1px solid var(--border);
+  border-radius: 6px; padding: 10px 8px; text-align: center;
+  position: relative; overflow: hidden;
+}
+.met::after {
+  content: ''; position: absolute; bottom: 0; left: 0; right: 0; height: 2px;
+}
+.met.m-blue::after   { background: linear-gradient(90deg,var(--accent),transparent); }
+.met.m-green::after  { background: linear-gradient(90deg,var(--green),transparent); }
+.met.m-gold::after   { background: linear-gradient(90deg,var(--gold),transparent); }
+.met.m-red::after    { background: linear-gradient(90deg,var(--red),transparent); }
+.met.m-purple::after { background: linear-gradient(90deg,var(--purple),transparent); }
+.met.m-orange::after { background: linear-gradient(90deg,var(--orange),transparent); }
+.ml { font-size: 8px; color: var(--muted); letter-spacing: .8px; text-transform: uppercase; margin-bottom: 5px; }
+.mv { font-family: 'Orbitron', monospace; font-size: 14px; font-weight: 700; line-height: 1; }
+.ms { font-size: 9px; margin-top: 3px; color: var(--muted); }
+
+/* ── POSITION CARDS ── */
+.pos-card {
+  background: var(--panel); border: 1px solid var(--border);
+  border-radius: 8px; padding: 12px; margin-bottom: 8px;
+  position: relative; overflow: hidden;
+}
+.pos-card.open  { border-color: rgba(0,255,136,.3); }
+.pos-card.empty { border-style: dashed; opacity: .5; }
+.pos-card::before {
+  content: ''; position: absolute;
+  top: 0; left: 0; bottom: 0; width: 3px;
+}
+.pos-card.open::before  { background: linear-gradient(180deg,var(--green),transparent); }
+.pos-card.empty::before { background: var(--border); }
+
+.pos-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+.pos-sym { font-family: 'Orbitron', monospace; font-size: 14px; color: var(--green); }
+.pos-badge {
+  font-size: 9px; padding: 3px 8px; border-radius: 3px; letter-spacing: 1px;
+  text-transform: uppercase;
+}
+.pb-open { background: rgba(0,255,136,.12); color: var(--green); border: 1px solid rgba(0,255,136,.3); }
+.pb-empty{ background: rgba(74,106,138,.1); color: var(--muted); border: 1px solid var(--border); }
+
+.pos-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.pg-item { }
+.pg-lbl { font-size: 8px; color: var(--muted); margin-bottom: 2px; letter-spacing: .8px; text-transform: uppercase; }
+.pg-val { font-size: 12px; }
+
+.pnl-bar {
+  height: 4px; background: var(--border); border-radius: 2px; overflow: hidden; margin-top: 10px;
+}
+.pnl-fill {
+  height: 100%; border-radius: 2px;
+  transition: width 0.5s ease, background 0.5s;
+}
+
+.pos-actions { display: flex; gap: 6px; margin-top: 10px; }
+.pact {
+  flex: 1; padding: 8px; border-radius: 5px;
+  font-family: 'Orbitron', monospace; font-size: 9px;
+  letter-spacing: 1px; cursor: pointer; border: none;
+  transition: all .2s; text-transform: uppercase;
+}
+.pact.sell { background: rgba(255,51,85,.15); color: var(--red); border: 1px solid rgba(255,51,85,.3); }
+.pact.sell:active { background: rgba(255,51,85,.3); }
+.pact.edit { background: rgba(0,229,255,.08); color: var(--accent); border: 1px solid rgba(0,229,255,.2); }
+.pact:active { transform: scale(.97); }
+
+/* ── SIGNAL PANEL ── */
+.signal-row {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 0; border-bottom: 1px solid rgba(28,48,72,.6);
+  font-size: 11px;
+}
+.signal-row:last-child { border-bottom: none; }
+.sig-name { flex: 1; color: var(--muted); font-size: 10px; }
+.sig-val { min-width: 60px; text-align: right; }
+.sig-bar-wrap { width: 60px; }
+.sig-bar { height: 3px; background: var(--border); border-radius: 2px; overflow: hidden; }
+.sig-bar-fill { height: 100%; border-radius: 2px; transition: width .5s; }
+
+/* ── LOG ── */
+.log-wrap {
+  background: var(--bg2); border: 1px solid var(--border);
+  border-radius: 6px; max-height: 220px;
+  overflow-y: auto; font-size: 10px; line-height: 1.8;
+  padding: 8px;
+}
+.log-line { display: flex; gap: 8px; align-items: baseline; }
+.log-time { color: var(--muted); flex-shrink: 0; font-size: 9px; }
+.log-buy  { color: var(--green); }
+.log-sell { color: var(--red); }
+.log-info { color: var(--accent); }
+.log-warn { color: var(--gold); }
+.log-ai   { color: var(--purple); }
+
+/* ── SETTINGS ── */
+.setting-row {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 12px 0; border-bottom: 1px solid rgba(28,48,72,.5);
+}
+.setting-row:last-child { border-bottom: none; }
+.s-lbl { font-size: 11px; color: var(--text); }
+.s-sub { font-size: 9px; color: var(--muted); margin-top: 2px; }
+.s-ctrl { }
+
+.toggle {
+  width: 40px; height: 22px; background: var(--panel);
+  border: 1px solid var(--border); border-radius: 11px;
+  position: relative; cursor: pointer; transition: all .3s;
+}
+.toggle.on { background: rgba(0,255,136,.15); border-color: var(--green); }
+.toggle::after {
+  content: ''; position: absolute; top: 2px; left: 2px;
+  width: 16px; height: 16px; border-radius: 50%;
+  background: var(--muted); transition: all .3s;
+}
+.toggle.on::after { left: 20px; background: var(--green); box-shadow: 0 0 6px var(--green); }
+
+.num-input {
+  width: 80px; background: var(--bg2); border: 1px solid var(--border);
+  border-radius: 5px; color: var(--text);
+  font-family: 'JetBrains Mono', monospace; font-size: 12px;
+  padding: 6px 8px; outline: none; text-align: right;
+  -webkit-appearance: none;
+}
+.num-input:focus { border-color: var(--accent); }
+
+.sel-input {
+  background: var(--bg2); border: 1px solid var(--border);
+  border-radius: 5px; color: var(--text);
+  font-family: 'JetBrains Mono', monospace; font-size: 11px;
+  padding: 6px 8px; outline: none; -webkit-appearance: none;
+}
+.sel-input:focus { border-color: var(--accent); }
+
+/* ── CHART ── */
+.chart-wrap { padding: 12px; padding-top: 0; }
+
+/* ── ALERT BANNER ── */
+.alert-banner {
+  background: rgba(255,51,85,.08); border: 1px solid rgba(255,51,85,.25);
+  border-radius: 6px; padding: 10px 12px; margin-bottom: 10px;
+  font-size: 10px; color: #ff8899; line-height: 1.6;
+  display: flex; gap: 8px;
+}
+
+.info-banner {
+  background: rgba(0,229,255,.06); border: 1px solid rgba(0,229,255,.2);
+  border-radius: 6px; padding: 10px 12px; margin-bottom: 10px;
+  font-size: 10px; color: var(--accent); line-height: 1.6;
+  display: flex; gap: 8px;
+}
+
+/* ── ENTRY TRIGGER ── */
+.entry-trigger {
+  background: var(--panel); border: 1px solid var(--border);
+  border-radius: 8px; padding: 12px; margin-bottom: 8px;
+}
+.et-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+.et-title { font-family: 'Orbitron', monospace; font-size: 10px; color: var(--accent); letter-spacing: 1.5px; }
+.cond-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.cond-item {
+  background: var(--bg2); border: 1px solid var(--border);
+  border-radius: 5px; padding: 8px; text-align: center;
+}
+.cond-lbl { font-size: 8px; color: var(--muted); margin-bottom: 3px; letter-spacing: .8px; text-transform: uppercase; }
+.cond-val { font-family: 'Orbitron', monospace; font-size: 12px; font-weight: 700; }
+.cond-item.pass { border-color: rgba(0,255,136,.3); }
+.cond-item.fail { border-color: rgba(255,51,85,.2); }
+.cond-item.pass .cond-val { color: var(--green); }
+.cond-item.fail .cond-val { color: var(--red); }
+.cond-item.wait .cond-val { color: var(--muted); }
+
+/* ── SCAN LIST ── */
+.scan-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 12px; border-bottom: 1px solid rgba(28,48,72,.5);
+  cursor: pointer; transition: background .15s;
+}
+.scan-item:last-child { border-bottom: none; }
+.scan-item:active { background: rgba(0,229,255,.04); }
+.scan-sym { font-family: 'Orbitron', monospace; font-size: 12px; color: var(--accent); width: 72px; flex-shrink: 0; }
+.scan-score-wrap { flex: 1; }
+.scan-score-bar { height: 3px; background: var(--border); border-radius: 2px; overflow: hidden; margin-top: 4px; }
+.scan-fill { height: 100%; border-radius: 2px; }
+.scan-right { text-align: right; min-width: 54px; }
+.scan-pct { font-size: 11px; }
+.scan-age { font-size: 9px; color: var(--muted); margin-top: 2px; }
+
+/* ── UTIL ── */
+.pos-txt { color: var(--green); }
+.neg-txt { color: var(--red); }
+.gold-txt { color: var(--gold); }
+.blue-txt { color: var(--accent); }
+.dim-txt  { color: var(--muted); }
+
+.hl { font-family: 'Orbitron', monospace; font-size: 12px; color: var(--accent); font-weight: 700; }
+
+.row { display: flex; align-items: center; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid rgba(28,48,72,.4); font-size: 11px; }
+.row:last-child { border-bottom: none; }
+.rk { color: var(--muted); font-size: 10px; }
+
+.divider { height: 1px; background: var(--border); margin: 10px 0; }
+.shd { font-family: 'Orbitron', monospace; font-size: 9px; letter-spacing: 1.5px; color: var(--accent); text-transform: uppercase; padding-bottom: 6px; border-bottom: 1px solid var(--border); margin: 14px 0 8px; }
+
+.exec-btn {
+  width: 100%; padding: 14px; margin-top: 10px;
+  border-radius: 7px; font-family: 'Orbitron', monospace;
+  font-size: 11px; letter-spacing: 2px; cursor: pointer;
+  transition: all .2s; text-transform: uppercase; border: none;
+}
+.btn-buy {
+  background: linear-gradient(135deg, rgba(0,255,136,.2), rgba(0,255,136,.08));
+  color: var(--green); border: 1px solid rgba(0,255,136,.4);
+}
+.btn-buy:active { background: rgba(0,255,136,.3); transform: scale(.98); }
+.btn-danger {
+  background: linear-gradient(135deg, rgba(255,51,85,.2), rgba(255,51,85,.08));
+  color: var(--red); border: 1px solid rgba(255,51,85,.4);
+}
+.btn-danger:active { background: rgba(255,51,85,.3); transform: scale(.98); }
+.btn-neutral {
+  background: rgba(0,229,255,.08);
+  color: var(--accent); border: 1px solid rgba(0,229,255,.25);
+}
+.btn-neutral:active { background: rgba(0,229,255,.18); }
+
+.ld { display: inline-flex; gap: 3px; align-items: center; }
+.ld span { width: 4px; height: 4px; border-radius: 50%; background: var(--accent); animation: ld 1.2s ease infinite; }
+.ld span:nth-child(2) { animation-delay: .2s; }
+.ld span:nth-child(3) { animation-delay: .4s; }
+@keyframes ld { 0%,80%,100%{opacity:.2}40%{opacity:1} }
+
+/* TOAST */
+.toast {
+  position: fixed; bottom: calc(var(--nav) + var(--safe) + 12px);
+  left: 12px; right: 12px;
+  background: var(--card); border-radius: 8px; padding: 11px 14px;
+  font-size: 11px; z-index: 300; text-align: center;
+  transform: translateY(20px); opacity: 0; transition: all .3s ease;
+  border: 1px solid var(--border);
+}
+.toast.show { transform: translateY(0); opacity: 1; }
+.toast.t-buy  { border-color: var(--green); color: var(--green); }
+.toast.t-sell { border-color: var(--red);   color: var(--red); }
+.toast.t-info { border-color: var(--accent); color: var(--accent); }
+.toast.t-warn { border-color: var(--gold);  color: var(--gold); }
+
+/* CONFIRM MODAL */
+.modal-ov {
+  position: fixed; inset: 0; background: rgba(0,0,0,.85);
+  backdrop-filter: blur(12px); z-index: 200;
+  display: none; align-items: flex-end; justify-content: center;
+}
+.modal-ov.open { display: flex; }
+.msheet {
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: 16px 16px 0 0; width: 100%;
+  padding: 20px 16px calc(20px + var(--safe));
+}
+.mhandle { width: 32px; height: 3px; background: var(--border); border-radius: 2px; margin: 0 auto 16px; }
+.mtitle { font-family: 'Orbitron', monospace; font-size: 13px; letter-spacing: 1.5px; color: var(--accent); margin-bottom: 14px; text-align: center; }
+.mdetail { background: var(--panel); border: 1px solid var(--border); border-radius: 6px; padding: 12px; margin-bottom: 14px; }
+.mbtn-row { display: flex; gap: 8px; }
+.mbtn { flex: 1; padding: 13px; border-radius: 7px; font-family: 'Orbitron', monospace; font-size: 10px; letter-spacing: 1.5px; cursor: pointer; text-align: center; border: none; }
+.mbtn-ok   { background: rgba(0,255,136,.15); color: var(--green);  border: 1px solid rgba(0,255,136,.4); }
+.mbtn-no   { background: rgba(255,51,85,.1);  color: var(--red);    border: 1px solid rgba(255,51,85,.3); }
+.mbtn-gray { background: var(--panel);         color: var(--muted);  border: 1px solid var(--border); }
+
+/* SL SLIDER */
+.sl-display { font-family: 'Orbitron', monospace; font-size: 20px; color: var(--red); text-align: center; margin: 10px 0; }
+input[type=range] {
+  width: 100%; -webkit-appearance: none; height: 4px;
+  background: linear-gradient(90deg, var(--red), var(--gold));
+  border-radius: 2px; outline: none; margin: 8px 0;
+}
+input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance: none; width: 18px; height: 18px;
+  border-radius: 50%; background: var(--text);
+  border: 2px solid var(--bg); cursor: pointer;
+  box-shadow: 0 0 6px rgba(255,51,85,.5);
+}
+
+/* ── PIPELINE ── */
+.pipe-stage {
+  display:flex;flex-direction:column;align-items:center;gap:3px;
+  flex:1;
+}
+.pipe-num {
+  width:32px;height:32px;border-radius:50%;
+  background:var(--border);color:var(--muted);
+  display:flex;align-items:center;justify-content:center;
+  font-family:'Orbitron',monospace;font-size:11px;font-weight:700;
+  transition:all .4s;
+}
+.pipe-stage.active .pipe-num {
+  background:var(--accent);color:var(--bg);
+  box-shadow:0 0 12px var(--accent);
+}
+.pipe-stage.pass .pipe-num {
+  background:var(--green);color:var(--bg);
+  box-shadow:0 0 10px var(--green);
+}
+.pipe-stage.fail .pipe-num { background:var(--red); color:var(--bg); }
+.pipe-ai .pipe-num { background:var(--panel);color:var(--purple);border:1px solid var(--purple); }
+.pipe-stage.ai-active .pipe-num {
+  background:var(--purple);color:var(--bg);
+  box-shadow:0 0 14px var(--purple);
+  animation:aiPulse .8s ease infinite;
+}
+.pipe-stage.ai-done .pipe-num { background:var(--purple);color:var(--bg); }
+@keyframes aiPulse{0%,100%{box-shadow:0 0 8px var(--purple)}50%{box-shadow:0 0 20px var(--purple)}}
+.pipe-lbl { font-size:10px;color:var(--text);letter-spacing:.5px; }
+.pipe-sub { font-size:9px;color:var(--muted); }
+.pipe-arrow {
+  color:var(--border);font-size:14px;padding:0 2px;
+  transition:color .4s;flex-shrink:0;margin-bottom:14px;
+}
+.pipe-arrow.lit { color:var(--green); }
+
+/* per-coin filter row */
+.filter-row {
+  padding:9px 12px;border-bottom:1px solid rgba(28,48,72,.5);
+  font-size:11px;
+}
+.filter-row:last-child{border-bottom:none}
+.filter-row-head {
+  display:flex;align-items:center;gap:8px;margin-bottom:6px;
+}
+.fr-sym { font-family:'Orbitron',monospace;font-size:11px;color:var(--accent);width:72px;flex-shrink:0; }
+.fr-age { font-size:9px;color:var(--muted); }
+.fr-result { margin-left:auto;font-size:10px;font-family:'Orbitron',monospace; }
+.filter-stages {
+  display:flex;align-items:center;gap:4px;
+}
+.fs-chip {
+  flex:1;padding:4px 2px;border-radius:4px;text-align:center;
+  font-size:9px;border:1px solid var(--border);
+  background:var(--panel);color:var(--muted);
+  transition:all .3s;
+}
+.fs-chip.pass { background:rgba(0,255,136,.1);border-color:rgba(0,255,136,.3);color:var(--green); }
+.fs-chip.fail { background:rgba(255,51,85,.06);border-color:rgba(255,51,85,.2);color:var(--red); }
+.fs-chip.skip { opacity:.35; }
+.fs-chip.ai-run { background:rgba(189,147,249,.12);border-color:rgba(189,147,249,.3);color:var(--purple);animation:aiPulse .8s ease infinite; }
+.fs-chip.ai-pass { background:rgba(189,147,249,.2);border-color:var(--purple);color:var(--purple); }
+.fs-sep { color:var(--border);font-size:10px;flex-shrink:0; }
+
+
+/* ── SETTINGS PREVIEW ── */
+.prev-chip {
+  background:var(--bg2);border:1px solid var(--border);border-radius:5px;
+  padding:6px 8px;display:flex;flex-direction:column;gap:2px;
+}
+.prev-lbl { font-size:8px;color:var(--muted);letter-spacing:.8px;text-transform:uppercase; }
+.prev-val { font-size:11px;color:var(--text);font-family:'JetBrains Mono',monospace; }
+
+::-webkit-scrollbar { width: 3px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header class="hdr">
+  <div class="logo-area">
+    <div>
+      <div class="logo-text">AUTO TRADE</div>
+      <div class="logo-sub">NewCoin Radar System</div>
+    </div>
+  </div>
+  <div class="sys-status">
+    <div class="status-pill" id="modeLabel" style="border-color:var(--muted);color:var(--muted);font-size:9px">DEMO</div>
+    <div class="status-pill standby" id="sysPill">
+      <div class="sdot w" id="sysDot"></div>
+      <span id="sysLabel">STANDBY</span>
+    </div>
+    <div class="master-sw" id="masterSw" onclick="toggleSystem()"></div>
+  </div>
+</header>
+
+<!-- SCROLL WRAP -->
+<div class="wrap" id="wrap">
+
+  <!-- ═══ PAGE: DASHBOARD ═══ -->
+  <div class="pg active" id="pg-dash">
+
+    <div class="alert-banner">
+      <span>⚠</span>
+      <span>このシステムはデモ環境です。本番APIキー設定前に必ずペーパートレードで動作確認を行ってください。実際の資金を使用したトレードに伴うリスクはすべてユーザー自身が負います。</span>
+    </div>
+
+    <!-- System metrics -->
+    <div class="metrics-row">
+      <div class="met m-blue">
+        <div class="ml">総資産</div>
+        <div class="mv blue-txt" id="mBalance">—</div>
+        <div class="ms">USDT</div>
+      </div>
+      <div class="met m-green">
+        <div class="ml">累計損益</div>
+        <div class="mv" id="mPnL" style="color:var(--muted)">—</div>
+        <div class="ms" id="mPnLPct">—</div>
+      </div>
+      <div class="met m-gold">
+        <div class="ml">勝率</div>
+        <div class="mv gold-txt" id="mWinRate">—</div>
+        <div class="ms" id="mTrades">0トレード</div>
+      </div>
+    </div>
+    <div class="metrics-row">
+      <div class="met m-purple">
+        <div class="ml">スキャン対象</div>
+        <div class="mv" style="color:var(--purple)" id="mScanCount">7</div>
+        <div class="ms">コイン監視中</div>
+      </div>
+      <div class="met m-orange">
+        <div class="ml">空きポジ</div>
+        <div class="mv" style="color:var(--orange)" id="mFreeSlot">2/2</div>
+        <div class="ms">最大2ポジ</div>
+      </div>
+      <div class="met m-blue">
+        <div class="ml">次回スキャン</div>
+        <div class="mv blue-txt" id="mNextScan">5:00</div>
+        <div class="ms">5分足</div>
+      </div>
+    </div>
+
+    <!-- Positions -->
+    <div class="card">
+      <div class="ch"><span class="ct">オープンポジション</span><span style="font-size:9px;color:var(--muted)">最大2ポジション</span></div>
+      <div class="cb" style="padding:10px">
+        <div id="posSlot0"></div>
+        <div id="posSlot1"></div>
+      </div>
+    </div>
+
+    <!-- Live chart -->
+    <div class="card">
+      <div class="ch">
+        <span class="ct" id="chartTitle">◈ ライブチャート</span>
+        <span style="font-size:9px;color:var(--muted)">5分足 / Bitget</span>
+      </div>
+      <div class="chart-wrap">
+        <canvas id="liveChart" height="200"></canvas>
+      </div>
+    </div>
+
+    <!-- AI Signals -->
+    <div class="card">
+      <div class="ch"><span class="ct">AI 判断シグナル</span><span id="lastScanTime" style="font-size:9px;color:var(--muted)">未スキャン</span></div>
+      <div class="cb">
+        <div class="signal-row">
+          <span class="sig-name">Claude AI スコア</span>
+          <div class="sig-bar-wrap"><div class="sig-bar"><div class="sig-bar-fill" id="sb-claude" style="width:0%;background:var(--purple)"></div></div></div>
+          <span class="sig-val" id="sv-claude" style="color:var(--muted)">—</span>
+        </div>
+        <div class="signal-row">
+          <span class="sig-name">テクニカル総合</span>
+          <div class="sig-bar-wrap"><div class="sig-bar"><div class="sig-bar-fill" id="sb-tech" style="width:0%;background:var(--accent)"></div></div></div>
+          <span class="sig-val" id="sv-tech" style="color:var(--muted)">—</span>
+        </div>
+        <div class="signal-row">
+          <span class="sig-name">RSI (5m)</span>
+          <div class="sig-bar-wrap"><div class="sig-bar"><div class="sig-bar-fill" id="sb-rsi" style="width:0%;background:var(--gold)"></div></div></div>
+          <span class="sig-val" id="sv-rsi" style="color:var(--muted)">—</span>
+        </div>
+        <div class="signal-row">
+          <span class="sig-name">出来高比率</span>
+          <div class="sig-bar-wrap"><div class="sig-bar"><div class="sig-bar-fill" id="sb-vol" style="width:0%;background:var(--green)"></div></div></div>
+          <span class="sig-val" id="sv-vol" style="color:var(--muted)">—</span>
+        </div>
+        <div class="signal-row">
+          <span class="sig-name">MACD シグナル</span>
+          <div class="sig-bar-wrap"><div class="sig-bar"><div class="sig-bar-fill" id="sb-macd" style="width:0%;background:var(--orange)"></div></div></div>
+          <span class="sig-val" id="sv-macd" style="color:var(--muted)">—</span>
+        </div>
+        <div class="signal-row">
+          <span class="sig-name">エントリー判定</span>
+          <div class="sig-bar-wrap"></div>
+          <span class="sig-val" id="sv-entry" style="color:var(--muted);font-family:'Orbitron',monospace;font-size:10px">WAIT</span>
+        </div>
+        <!-- divider -->
+        <div style="height:1px;background:var(--border);margin:6px 0"></div>
+        <div style="font-size:8px;color:var(--muted);letter-spacing:1px;margin-bottom:4px">◈ オンチェーン指標</div>
+        <div class="signal-row">
+          <span class="sig-name">24H 出来高</span>
+          <div class="sig-bar-wrap"><div class="sig-bar"><div class="sig-bar-fill" id="sb-oc-vol" style="width:0%;background:var(--accent)"></div></div></div>
+          <span class="sig-val" id="sv-oc-vol" style="color:var(--muted)">—</span>
+        </div>
+        <div class="signal-row">
+          <span class="sig-name">板の厚み</span>
+          <div class="sig-bar-wrap"><div class="sig-bar"><div class="sig-bar-fill" id="sb-oc-dep" style="width:0%;background:var(--gold)"></div></div></div>
+          <span class="sig-val" id="sv-oc-dep" style="color:var(--muted)">—</span>
+        </div>
+        <div class="signal-row">
+          <span class="sig-name">上位10W保有率</span>
+          <div class="sig-bar-wrap"><div class="sig-bar"><div class="sig-bar-fill" id="sb-oc-top" style="width:0%;background:var(--orange)"></div></div></div>
+          <span class="sig-val" id="sv-oc-top" style="color:var(--muted)">—</span>
+        </div>
+        <div class="signal-row">
+          <span class="sig-name">LP ロック率</span>
+          <div class="sig-bar-wrap"><div class="sig-bar"><div class="sig-bar-fill" id="sb-oc-lp" style="width:0%;background:var(--purple)"></div></div></div>
+          <span class="sig-val" id="sv-oc-lp" style="color:var(--muted)">—</span>
+        </div>
+        <div class="signal-row">
+          <span class="sig-name">OC 総合スコア</span>
+          <div class="sig-bar-wrap"><div class="sig-bar"><div class="sig-bar-fill" id="sb-oc-comp" style="width:0%;background:var(--green)"></div></div></div>
+          <span class="sig-val" id="sv-oc-comp" style="color:var(--muted);font-family:'Orbitron',monospace;font-size:11px">—</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Trade log -->
+    <div class="card">
+      <div class="ch"><span class="ct">トレードログ</span><button onclick="clearLog()" style="font-size:9px;background:none;border:none;color:var(--muted);cursor:pointer">CLR</button></div>
+      <div class="cb" style="padding:8px">
+        <div class="log-wrap" id="logBox"></div>
+      </div>
+    </div>
+
+  </div><!-- /pg-dash -->
+
+  <!-- ═══ PAGE: SCAN ═══ -->
+  <div class="pg" id="pg-scan">
+
+    <!-- 4-stage pipeline visual -->
+    <div style="background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:10px">
+      <div style="font-family:'Orbitron',monospace;font-size:9px;letter-spacing:2px;color:var(--accent);margin-bottom:12px">◈ 4段階フィルターパイプライン</div>
+      <div style="display:flex;align-items:center;justify-content:space-between">
+        <div class="pipe-stage" id="pipe1">
+          <div class="pipe-num">1</div>
+          <div class="pipe-lbl">RSI</div>
+          <div class="pipe-sub" id="pipeRsiN">—</div>
+        </div>
+        <div class="pipe-arrow" id="arr1">▶</div>
+        <div class="pipe-stage" id="pipe2">
+          <div class="pipe-num">2</div>
+          <div class="pipe-lbl">MACD</div>
+          <div class="pipe-sub" id="pipeMacdN">—</div>
+        </div>
+        <div class="pipe-arrow" id="arr2">▶</div>
+        <div class="pipe-stage" id="pipe3">
+          <div class="pipe-num">3</div>
+          <div class="pipe-lbl">出来高</div>
+          <div class="pipe-sub" id="pipeVolN">—</div>
+        </div>
+        <div class="pipe-arrow" id="arr3">▶</div>
+        <div class="pipe-stage pipe-ai" id="pipe4">
+          <div class="pipe-num" style="background:var(--purple);box-shadow:0 0 8px var(--purple)">AI</div>
+          <div class="pipe-lbl" style="color:var(--purple)">Claude</div>
+          <div class="pipe-sub" id="pipeAiN">—</div>
+        </div>
+      </div>
+      <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);display:grid;grid-template-columns:repeat(4,1fr);gap:4px;font-size:9px;text-align:center">
+        <div><div style="color:var(--muted)">全銘柄</div><div style="color:var(--text);font-family:'Orbitron',monospace" id="pipeIn">—</div></div>
+        <div><div style="color:var(--muted)">RSI通過</div><div style="color:var(--gold);font-family:'Orbitron',monospace" id="pipeRsiC">—</div></div>
+        <div><div style="color:var(--muted)">MACD通過</div><div style="color:var(--orange);font-family:'Orbitron',monospace" id="pipeMacdC">—</div></div>
+        <div><div style="color:var(--muted)">出来高通過</div><div style="color:var(--green);font-family:'Orbitron',monospace" id="pipeVolC">—</div></div>
+      </div>
+    </div>
+
+    <!-- Scan trigger -->
+    <div style="display:flex;gap:8px;margin-bottom:10px;align-items:stretch">
+      <button class="exec-btn btn-neutral" style="flex:1;margin:0;padding:12px;font-size:10px" onclick="runScan()">
+        📡 スキャン実行
+      </button>
+      <div style="background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:10px 12px;font-size:10px;color:var(--muted);display:flex;flex-direction:column;justify-content:center;text-align:center">
+        <div>最終スキャン</div>
+        <div id="lastScanTime2" style="color:var(--text);font-size:11px;margin-top:2px">未実行</div>
+      </div>
+    </div>
+
+    <!-- Per-coin filter breakdown table -->
+    <div class="card">
+      <div class="ch">
+        <span class="ct">銘柄別フィルター進捗</span>
+        <span id="scanResultCount" style="font-size:9px;color:var(--muted)">—</span>
+      </div>
+      <div id="scanList" style="padding:4px 0">
+        <div style="color:var(--muted);font-size:11px;text-align:center;padding:20px">スキャン実行後に表示</div>
+      </div>
+    </div>
+
+    <!-- AI analysis result panel (only shown after stage3 pass) -->
+    <div class="card" id="aiResultCard" style="display:none">
+      <div class="ch" style="background:rgba(189,147,249,0.05)">
+        <span class="ct" style="color:var(--purple)">🤖 Claude AI 分析結果</span>
+        <span id="aiResultSym" style="font-family:'Orbitron',monospace;font-size:11px;color:var(--accent)">—</span>
+      </div>
+      <div class="cb">
+        <div id="aiResultBody" style="font-size:11px;line-height:1.8;color:var(--text);white-space:pre-wrap;min-height:80px;border-left:3px solid var(--purple);padding-left:10px"></div>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:12px">
+          <div style="background:var(--panel);border:1px solid var(--border);border-radius:6px;padding:8px;text-align:center">
+            <div style="font-size:8px;color:var(--muted);margin-bottom:3px;letter-spacing:.8px">AI スコア</div>
+            <div style="font-family:'Orbitron',monospace;font-size:18px;font-weight:700" id="aiScore">—</div>
+          </div>
+          <div style="background:var(--panel);border:1px solid var(--border);border-radius:6px;padding:8px;text-align:center">
+            <div style="font-size:8px;color:var(--muted);margin-bottom:3px;letter-spacing:.8px">判定</div>
+            <div style="font-family:'Orbitron',monospace;font-size:12px;font-weight:700" id="aiVerdict">—</div>
+          </div>
+          <div style="background:var(--panel);border:1px solid var(--border);border-radius:6px;padding:8px;text-align:center">
+            <div style="font-size:8px;color:var(--muted);margin-bottom:3px;letter-spacing:.8px">信頼度</div>
+            <div style="font-family:'Orbitron',monospace;font-size:18px;font-weight:700" id="aiConf">—</div>
+          </div>
+        </div>
+        <!-- On-chain breakdown (populated by updateOnChainPanel) -->
+        <div id="ocBreakdown" style="margin-top:12px"></div>
+        <button class="exec-btn btn-buy" id="aiEntryBtn" style="display:none;margin-top:10px" onclick="entryFromAI()">
+          ◎ このシグナルでエントリー
+        </button>
+      </div>
+    </div>
+
+    <!-- Manual entry -->
+    <div class="card">
+      <div class="ch"><span class="ct">手動エントリー</span></div>
+      <div class="cb">
+        <div class="row"><span class="rk">コイン</span>
+          <select class="sel-input" id="manualSym">
+            <option value="TURBO">TURBO</option><option value="PEPE">PEPE</option>
+            <option value="WIF">WIF</option><option value="BOME">BOME</option>
+            <option value="EIGEN">EIGEN</option><option value="LISTA">LISTA</option>
+          </select>
+        </div>
+        <div class="row"><span class="rk">投入USDT</span>
+          <input type="number" class="num-input" id="manualAmt" value="500" min="10" step="10">
+        </div>
+        <div class="row"><span class="rk">ストップロス</span>
+          <input type="number" class="num-input" id="manualSL" value="-15" min="-50" max="-1" step="1">
+        </div>
+        <button class="exec-btn btn-buy" onclick="openConfirm('manual')">◎ エントリー確認</button>
+      </div>
+    </div>
+
+  </div><!-- /pg-scan -->
+
+  <!-- ═══ PAGE: STRATEGY ═══ -->
+  <div class="pg" id="pg-strategy">
+
+    <!-- 設定プレビューバナー -->
+    <div id="settingPreview" style="background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:10px;font-size:10px">
+      <div style="font-family:'Orbitron',monospace;font-size:9px;letter-spacing:1.5px;color:var(--accent);margin-bottom:8px">◈ 現在の取引条件</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:5px" id="previewGrid">
+        <div class="prev-chip"><span class="prev-lbl">上場制限</span><span class="prev-val" id="pv-age">48H以内</span></div>
+        <div class="prev-chip"><span class="prev-lbl">AIスコア</span><span class="prev-val" id="pv-ai">≥ 65点</span></div>
+        <div class="prev-chip"><span class="prev-lbl">RSI範囲</span><span class="prev-val" id="pv-rsi">40〜70</span></div>
+        <div class="prev-chip"><span class="prev-lbl">出来高倍率</span><span class="prev-val" id="pv-vol">≥ 2.0x</span></div>
+        <div class="prev-chip"><span class="prev-lbl">最低流動性</span><span class="prev-val" id="pv-liq">≥ $100K</span></div>
+        <div class="prev-chip"><span class="prev-lbl">損切り</span><span class="prev-val neg-txt" id="pv-sl">-8%</span></div>
+        <div class="prev-chip" style="grid-column:1/-1"><span class="prev-lbl">利確</span><span class="prev-val pos-txt" id="pv-tp">①+20%で50%売 ②+40%で25%売 残りTR-10%</span></div>
+      </div>
+    </div>
+
+    <!-- 自動化ON/OFF -->
+    <div class="shd" style="margin-top:0">自動化設定</div>
+    <div class="card">
+      <div class="cb">
+        <div class="setting-row">
+          <div><div class="s-lbl">自動エントリー</div><div class="s-sub">条件合致で自動買い注文</div></div>
+          <div class="toggle on" id="tog-auto" onclick="toggleSetting(this)"></div>
+        </div>
+        <div class="setting-row">
+          <div><div class="s-lbl">自動段階利確</div><div class="s-sub">TP①②とトレーリングを自動実行</div></div>
+          <div class="toggle on" id="tog-tp" onclick="toggleSetting(this)"></div>
+        </div>
+        <div class="setting-row">
+          <div><div class="s-lbl">自動損切り</div><div class="s-sub">SLライン到達で自動売り</div></div>
+          <div class="toggle on" id="tog-sl" onclick="toggleSetting(this)"></div>
+        </div>
+        <div class="setting-row">
+          <div><div class="s-lbl">AI フィルター</div><div class="s-sub">AIスコア未達は除外</div></div>
+          <div class="toggle on" id="tog-ai" onclick="toggleSetting(this)"></div>
+        </div>
+        <div class="setting-row">
+          <div><div class="s-lbl">Telegram 通知</div><div class="s-sub">売買時にBot通知</div></div>
+          <div class="toggle" id="tog-tg" onclick="toggleSetting(this)"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- エントリー条件 -->
+    <div class="shd">エントリー条件</div>
+    <div class="card">
+      <div class="cb">
+        <div class="setting-row">
+          <div><div class="s-lbl">上場後経過時間</div><div class="s-sub">これ以内の銘柄のみ対象</div></div>
+          <div style="display:flex;align-items:center;gap:4px">
+            <input type="number" class="num-input" id="set-maxage" value="48" min="1" max="168" step="1">
+            <span style="font-size:10px;color:var(--muted)">H</span>
+          </div>
+        </div>
+        <div class="setting-row">
+          <div><div class="s-lbl">AI スコア 閾値</div><div class="s-sub">これ以上でエントリー許可</div></div>
+          <div style="display:flex;align-items:center;gap:4px">
+            <input type="number" class="num-input" id="set-aithresh" value="65" min="40" max="95" step="5">
+            <span style="font-size:10px;color:var(--muted)">点</span>
+          </div>
+        </div>
+        <div class="setting-row">
+          <div><div class="s-lbl">RSI 下限</div><div class="s-sub">この値以上のみ通過</div></div>
+          <div style="display:flex;align-items:center;gap:4px">
+            <input type="number" class="num-input" id="set-rsimin" value="40" min="10" max="60" step="1">
+            <span style="font-size:10px;color:var(--muted)">〜</span>
+            <input type="number" class="num-input" id="set-rsimax" value="70" min="50" max="90" step="1">
+          </div>
+        </div>
+        <div class="setting-row">
+          <div><div class="s-lbl">出来高 最低倍率</div><div class="s-sub">平均比でこの倍以上</div></div>
+          <div style="display:flex;align-items:center;gap:4px">
+            <input type="number" class="num-input" id="set-volmul" value="2.0" min="1.0" max="10" step="0.5">
+            <span style="font-size:10px;color:var(--muted)">x</span>
+          </div>
+        </div>
+        <div class="setting-row">
+          <div><div class="s-lbl">最低流動性</div><div class="s-sub">Bid+Ask合計の最低額</div></div>
+          <div style="display:flex;align-items:center;gap:4px">
+            <input type="number" class="num-input" id="set-liq" value="100" min="10" max="1000" step="10">
+            <span style="font-size:10px;color:var(--muted)">K$</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 損切り -->
+    <div class="shd">損切り（ストップロス）</div>
+    <div class="card">
+      <div class="cb">
+        <div class="sl-display" id="slDisplay">-8%</div>
+        <input type="range" id="slSlider" min="-50" max="-3" step="1" value="-8" oninput="updateSL(this.value)">
+        <div style="display:flex;justify-content:space-between;font-size:9px;color:var(--muted);margin-bottom:8px">
+          <span>-50%（広め）</span><span>-3%（タイト）</span>
+        </div>
+        <div class="info-banner" style="margin-bottom:0">
+          <span>💡</span><span id="slAdvice">—</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 段階利確 -->
+    <div class="shd">段階利確（テイクプロフィット）</div>
+    <div class="card">
+      <div class="cb">
+        <!-- TP1 -->
+        <div style="background:rgba(0,255,136,.05);border:1px solid rgba(0,255,136,.2);border-radius:6px;padding:10px;margin-bottom:8px">
+          <div style="font-family:'Orbitron',monospace;font-size:9px;color:var(--green);letter-spacing:1px;margin-bottom:8px">利確①</div>
+          <div class="setting-row" style="padding:4px 0">
+            <div><div class="s-lbl">達成ライン</div><div class="s-sub">エントリーからの上昇率</div></div>
+            <div style="display:flex;align-items:center;gap:4px">
+              <input type="number" class="num-input" id="set-tp1pct" value="20" min="5" max="200" step="5">
+              <span style="font-size:10px;color:var(--muted)">%</span>
+            </div>
+          </div>
+          <div class="setting-row" style="padding:4px 0;border-bottom:none">
+            <div><div class="s-lbl">売却比率</div><div class="s-sub">保有量のうち何%売るか</div></div>
+            <div style="display:flex;align-items:center;gap:4px">
+              <input type="number" class="num-input" id="set-tp1sell" value="50" min="10" max="90" step="5">
+              <span style="font-size:10px;color:var(--muted)">%売</span>
+            </div>
+          </div>
+        </div>
+        <!-- TP2 -->
+        <div style="background:rgba(0,229,255,.05);border:1px solid rgba(0,229,255,.2);border-radius:6px;padding:10px;margin-bottom:8px">
+          <div style="font-family:'Orbitron',monospace;font-size:9px;color:var(--accent);letter-spacing:1px;margin-bottom:8px">利確②</div>
+          <div class="setting-row" style="padding:4px 0">
+            <div><div class="s-lbl">達成ライン</div><div class="s-sub">エントリーからの上昇率</div></div>
+            <div style="display:flex;align-items:center;gap:4px">
+              <input type="number" class="num-input" id="set-tp2pct" value="40" min="10" max="300" step="5">
+              <span style="font-size:10px;color:var(--muted)">%</span>
+            </div>
+          </div>
+          <div class="setting-row" style="padding:4px 0;border-bottom:none">
+            <div><div class="s-lbl">売却比率</div><div class="s-sub">残保有量のうち何%売るか</div></div>
+            <div style="display:flex;align-items:center;gap:4px">
+              <input type="number" class="num-input" id="set-tp2sell" value="25" min="10" max="90" step="5">
+              <span style="font-size:10px;color:var(--muted)">%売</span>
+            </div>
+          </div>
+        </div>
+        <!-- Trailing -->
+        <div style="background:rgba(189,147,249,.05);border:1px solid rgba(189,147,249,.2);border-radius:6px;padding:10px">
+          <div style="font-family:'Orbitron',monospace;font-size:9px;color:var(--purple);letter-spacing:1px;margin-bottom:8px">残り全量 — トレーリングストップ</div>
+          <div class="setting-row" style="padding:4px 0;border-bottom:none">
+            <div><div class="s-lbl">高値から下落</div><div class="s-sub">最高値からこの%下落で決済</div></div>
+            <div style="display:flex;align-items:center;gap:4px">
+              <span style="font-size:10px;color:var(--muted)">-</span>
+              <input type="number" class="num-input" id="set-trail" value="10" min="3" max="30" step="1">
+              <span style="font-size:10px;color:var(--muted)">%</span>
+            </div>
+          </div>
+        </div>
+        <!-- Remaining calc -->
+        <div style="margin-top:8px;padding:8px;background:var(--bg2);border-radius:5px;font-size:10px;color:var(--muted);text-align:center" id="tpRemainCalc">
+          残り保有量 = 100% - ①売却% - (①残り × ②売却%) = <span id="tpRemainPct" style="color:var(--text)">—</span>%
+        </div>
+      </div>
+    </div>
+
+    <!-- 運用設定 -->
+    <div class="shd">運用設定</div>
+    <div class="card">
+      <div class="cb">
+        <div class="setting-row">
+          <div><div class="s-lbl">最大ポジション数</div><div class="s-sub">同時保有上限</div></div>
+          <div style="display:flex;align-items:center;gap:4px">
+            <input type="number" class="num-input" id="set-maxpos" value="2" min="1" max="5" step="1">
+            <span style="font-size:10px;color:var(--muted)">個</span>
+          </div>
+        </div>
+        <div class="setting-row">
+          <div><div class="s-lbl">1ポジ投入額</div><div class="s-sub">総資産に対する割合</div></div>
+          <div style="display:flex;align-items:center;gap:4px">
+            <input type="number" class="num-input" id="set-size" value="50" min="5" max="100" step="5">
+            <span style="font-size:10px;color:var(--muted)">%</span>
+          </div>
+        </div>
+        <div class="setting-row">
+          <div><div class="s-lbl">スキャン間隔</div><div class="s-sub">5分足に合わせたスキャン</div></div>
+          <select class="sel-input" id="set-interval">
+            <option value="5" selected>5分</option>
+            <option value="1">1分</option>
+            <option value="15">15分</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <button class="exec-btn btn-neutral" onclick="saveSettings()">💾 設定を保存</button>
+    <button class="exec-btn btn-danger" style="margin-top:6px" onclick="resetSettings()">↺ デフォルトに戻す</button>
+
+    <!-- サーバー接続状態 -->
+    <div class="shd">サーバー接続状態</div>
+    <div class="card">
+      <div class="cb">
+        <div class="row">
+          <span class="rk">Railwayサーバー</span>
+          <span id="serverStatusLabel" style="font-size:11px;color:var(--muted)">確認中...</span>
+        </div>
+        <div class="row">
+          <span class="rk">接続モード</span>
+          <span id="serverModeLabel" style="font-size:11px;color:var(--muted)">—</span>
+        </div>
+        <div class="row">
+          <span class="rk">Bitget</span>
+          <span id="serverBitgetLabel" style="font-size:11px;color:var(--muted)">—</span>
+        </div>
+        <div class="row">
+          <span class="rk">Claude AI</span>
+          <span id="serverClaudeLabel" style="font-size:11px;color:var(--muted)">—</span>
+        </div>
+        <div class="row">
+          <span class="rk">CMC</span>
+          <span id="serverCmcLabel" style="font-size:11px;color:var(--muted)">—</span>
+        </div>
+        <button class="exec-btn btn-neutral" style="margin-top:8px" onclick="checkServerConnection()">🔌 接続確認</button>
+      </div>
+    </div>
+
+  </div><!-- /pg-strategy -->
+
+  <!-- ═══ PAGE: HISTORY ═══ -->
+  <div class="pg" id="pg-history">
+
+    <!-- P&L Summary -->
+    <div class="metrics-row">
+      <div class="met m-green">
+        <div class="ml">総利益</div>
+        <div class="mv pos-txt" id="hTotalProfit">+$0</div>
+        <div class="ms">確定損益</div>
+      </div>
+      <div class="met m-red">
+        <div class="ml">総損失</div>
+        <div class="mv neg-txt" id="hTotalLoss">-$0</div>
+        <div class="ms">確定損益</div>
+      </div>
+      <div class="met m-gold">
+        <div class="ml">勝率</div>
+        <div class="mv gold-txt" id="hWinRate">—</div>
+        <div class="ms" id="hRecord">0勝0敗</div>
+      </div>
+    </div>
+
+    <!-- PnL Chart -->
+    <div class="chart-wrap" style="background:var(--card);border:1px solid var(--border);border-radius:8px;margin-bottom:10px;padding:12px">
+      <div style="font-family:'Orbitron',monospace;font-size:9px;letter-spacing:2px;color:var(--accent);margin-bottom:10px">◈ 累積損益推移</div>
+      <canvas id="pnlChart" height="140"></canvas>
+    </div>
+
+    <!-- 月次レポート -->
+    <div class="card">
+      <div class="ch"><span class="ct">📊 月次レポート</span><span id="reportMonth" style="font-size:9px;color:var(--muted)">—</span></div>
+      <div class="cb">
+        <div id="monthlyReportArea" style="font-size:10px;color:var(--muted);padding:8px 0">トレード履歴が蓄積されると自動生成されます</div>
+        <div style="display:flex;gap:8px;margin-top:8px">
+          <button class="exec-btn btn-neutral" style="flex:1;font-size:10px;padding:10px" onclick="generateMonthlyReport()">🤖 AIレポート生成</button>
+          <button class="exec-btn btn-neutral" style="flex:1;font-size:10px;padding:10px" onclick="exportCSV()">📥 CSV出力</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Trade history table -->
+    <div class="card">
+      <div class="ch"><span class="ct">トレード履歴</span><span id="hCount" style="font-size:9px;color:var(--muted)">0件</span></div>
+      <div style="overflow-x:auto">
+        <table style="width:100%;border-collapse:collapse;font-size:10px">
+          <thead>
+            <tr style="background:rgba(0,229,255,.03)">
+              <th style="padding:8px 10px;text-align:left;color:var(--muted);font-size:8px;letter-spacing:.8px;border-bottom:1px solid var(--border);white-space:nowrap">コイン</th>
+              <th style="padding:8px 10px;text-align:right;color:var(--muted);font-size:8px;letter-spacing:.8px;border-bottom:1px solid var(--border)">入値</th>
+              <th style="padding:8px 10px;text-align:right;color:var(--muted);font-size:8px;letter-spacing:.8px;border-bottom:1px solid var(--border)">出値</th>
+              <th style="padding:8px 10px;text-align:right;color:var(--muted);font-size:8px;letter-spacing:.8px;border-bottom:1px solid var(--border)">損益</th>
+              <th style="padding:8px 10px;text-align:right;color:var(--muted);font-size:8px;letter-spacing:.8px;border-bottom:1px solid var(--border)">理由</th>
+            </tr>
+          </thead>
+          <tbody id="histTable">
+            <tr><td colspan="5" style="text-align:center;color:var(--muted);padding:20px;font-size:11px">トレード履歴なし</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </div><!-- /pg-history -->
+
+</div><!-- /wrap -->
+
+<!-- BOTTOM NAV -->
+<nav class="bnav">
+  <div class="ni active" onclick="goPage('dash',this)"><span class="nicon">🖥</span><span class="nlabel">ダッシュ</span></div>
+  <div class="ni" onclick="goPage('scan',this)"><span class="nicon">📡</span><span class="nlabel">スキャン</span></div>
+  <div class="ni" onclick="goPage('strategy',this)"><span class="nicon">⚙</span><span class="nlabel">設定</span></div>
+  <div class="ni" onclick="goPage('history',this)"><span class="nicon">📈</span><span class="nlabel">履歴</span></div>
+</nav>
+
+<!-- CONFIRM MODAL -->
+<div class="modal-ov" id="modal" onclick="overlayClick(event)">
+  <div class="msheet">
+    <div class="mhandle"></div>
+    <div class="mtitle" id="mTitle">注文確認</div>
+    <div class="mdetail" id="mDetail"></div>
+    <div class="mbtn-row">
+      <button class="mbtn mbtn-gray" onclick="closeModal()">キャンセル</button>
+      <button class="mbtn mbtn-ok" id="mConfirmBtn" onclick="executeOrder()">実行する</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ══ サーバー接続設定 ══════════════════════════════════════════
+const SERVER_URL = 'https://web-production-31186.up.railway.app';
+let APP_MODE = 'DEMO';
+
+async function detectMode() {
+  await checkServerConnection();
+}
+
+async function fetchRealBalance() {
+  try {
+    const r = await fetch(SERVER_URL + '/api/bitget/balance');
+    const d = await r.json();
+    if (d.success) { STATE.balance = d.balance; renderMetrics(); addLog('info', `Bitget残高: $${d.balance.toFixed(2)} USDT`); }
+  } catch(e) {}
+}
+
+async function fetchRealCoins() {
+  try {
+    const maxAge = STATE.settings.maxListingAge || 72;
+    // Bitget直接取得（株式トークン含む）
+    const r = await fetch(SERVER_URL + '/api/bitget/new-listings?hours=' + maxAge);
+    const d = await r.json();
+    if (d.success && d.coins.length) {
+      Object.keys(COINS).forEach(k => delete COINS[k]);
+      d.coins.forEach(c => { COINS[c.symbol] = { price:c.price, name:c.name, listAge:c.listAge, vol24h:c.vol24h, bidDepth:0, askDepth:0, top10:null, lpLock:null }; });
+      document.getElementById('mScanCount').textContent = d.coins.length;
+      const syms = d.coins.slice(0,5).map(c=>c.symbol).join(', ');
+      addLog('info', 'Bitget新規上場: ' + d.coins.length + '件 (' + syms + (d.coins.length>5?'...':'') + ')');
+      return true;
+    }
+  } catch(e) { addLog('warn', 'Bitget新規上場取得失敗: ' + e.message); }
+  // フォールバック: CMCから取得
+  try {
+    const r2 = await fetch(SERVER_URL + '/api/cmc/new-listings?limit=28');
+    const d2 = await r2.json();
+    if (d2.success && d2.coins.length) {
+      const maxAge2 = STATE.settings.maxListingAge || 72;
+      const fresh = d2.coins.filter(c => c.listAge <= maxAge2);
+      Object.keys(COINS).forEach(k => delete COINS[k]);
+      fresh.forEach(c => { COINS[c.symbol] = { price:c.price, name:c.name, listAge:c.listAge, vol24h:c.vol24h, bidDepth:0, askDepth:0, top10:null, lpLock:null }; });
+      document.getElementById('mScanCount').textContent = fresh.length;
+      addLog('info', 'CMC新規上場(FB): ' + fresh.length + '件');
+      return true;
+    }
+  } catch(e2) { addLog('warn', 'CMC取得失敗 — デモデータで動作'); }
+  return false;
+}
+
+async function fetchRealTech(sym) {
+  try {
+    const r = await fetch(SERVER_URL + `/api/bitget/candles/${sym}?limit=100`);
+    const d = await r.json();
+    if (d.success && d.rsi !== null) return { rsi: d.rsi, macd: d.macd, volRatio: d.volRatio, candles: d.candles };
+  } catch(e) {}
+  return null;
+}
+
+// ════════════════════════════════════════════════════════════
+//  STATE
+// ════════════════════════════════════════════════════════════
+const STATE = {
+  running: false,
+  balance: 1000,       // USDT (demo)
+  positions: [null, null],
+  trades: [],
+  scanTimer: null,
+  scanCountdown: 300,
+  logs: [],
+  pendingOrder: null,
+  settings: {
+    // ── エントリー条件 ─────────────────────────────
+    maxListingAge : 48,    // 上場後N時間以内
+    aiThreshold   : 65,    // AIスコア閾値
+    rsiMin        : 40,    // RSI下限
+    rsiMax        : 70,    // RSI上限
+    volMultiple   : 2.0,   // 出来高倍率（平均比）
+    minLiquidity  : 100000,// 最低流動性 $
+    // ── 損切り ────────────────────────────────────
+    slPercent     : -8,    // ストップロス %
+    // ── 段階利確 ──────────────────────────────────
+    tp1Pct        : 20,    // 利確① 達成率 %
+    tp1Sell       : 50,    // 利確① 売却比率 %
+    tp2Pct        : 40,    // 利確② 達成率 %
+    tp2Sell       : 25,    // 利確② 売却比率 %
+    trailingDrop  : 10,    // 残り: 高値から-N%でトレーリング決済
+    // ── 運用 ──────────────────────────────────────
+    maxPos        : 2,
+    sizePercent   : 50,
+    interval      : 5,
+    autoEntry     : true,
+    autoTP        : true,
+    autoSL        : true,
+    aiFilter      : true,
+  },
+};
+
+// vol24h: 24時間出来高(USDT), bidDepth/askDepth: 板の厚み($), top10: 上位10ウォレット保有率(%), lpLock: LPロック率(%)
+const COINS = {
+  TURBO:   { price:0.00832,   name:'Turbo',       listAge:6,  vol24h:312e6,  bidDepth:48e3,  askDepth:52e3,  top10:31, lpLock:0  },
+  MOODENG: { price:0.1842,    name:'Moo Deng',    listAge:12, vol24h:189e6,  bidDepth:22e3,  askDepth:25e3,  top10:28, lpLock:0  },
+  PEPE:    { price:0.0000102, name:'Pepe',         listAge:30, vol24h:820e6,  bidDepth:310e3, askDepth:290e3, top10:18, lpLock:0  },
+  WIF:     { price:1.82,      name:'dogwifhat',   listAge:8,  vol24h:620e6,  bidDepth:180e3, askDepth:170e3, top10:22, lpLock:0  },
+  BOME:    { price:0.00804,   name:'Book of Meme',listAge:3,  vol24h:210e6,  bidDepth:65e3,  askDepth:70e3,  top10:35, lpLock:0  },
+  EIGEN:   { price:2.41,      name:'EigenLayer',  listAge:20, vol24h:98e6,   bidDepth:92e3,  askDepth:88e3,  top10:42, lpLock:85 },
+  LISTA:   { price:0.312,     name:'Lista DAO',   listAge:15, vol24h:45e6,   bidDepth:18e3,  askDepth:20e3,  top10:38, lpLock:92 },
+};
+
+let liveChartInst = null;
+let pnlChartInst  = null;
+let priceSimInterval = null;
+
+// ════════════════════════════════════════════════════════════
+//  INIT
+// ════════════════════════════════════════════════════════════
+window.addEventListener('DOMContentLoaded', () => {
+  loadSettings();
+  updateSL(STATE.settings.slPercent);
+  updatePreview();
+  updateTPRemain();
+  renderPositions();
+  renderMetrics();
+  buildLiveChart();
+  buildPnLChart();
+  renderHistory();
+  addLog('info', 'システム起動 — Bitget 現物取引モード');
+  addLog('info', 'Railwayサーバーに接続中...');
+  startCountdown();
+  detectMode();
+});
+
+// ════════════════════════════════════════════════════════════
+//  NAV
+// ════════════════════════════════════════════════════════════
+function goPage(name, el) {
+  document.querySelectorAll('.pg').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.ni').forEach(n => n.classList.remove('active'));
+  document.getElementById('pg-' + name).classList.add('active');
+  el.classList.add('active');
+  document.getElementById('wrap').scrollTop = 0;
+  if (name === 'history') buildPnLChart();
+}
+
+// ════════════════════════════════════════════════════════════
+//  SYSTEM TOGGLE
+// ════════════════════════════════════════════════════════════
+function toggleSystem() {
+  STATE.running = !STATE.running;
+  const sw   = document.getElementById('masterSw');
+  const pill = document.getElementById('sysPill');
+  const dot  = document.getElementById('sysDot');
+  const lbl  = document.getElementById('sysLabel');
+
+  sw.classList.toggle('on', STATE.running);
+  if (STATE.running) {
+    pill.className = 'status-pill running';
+    dot.className = 'sdot r';
+    lbl.textContent = 'RUNNING';
+    addLog('info', '🟢 自動トレードシステム 起動');
+    startAutoScan();
+    showToast('システム起動 — 自動スキャン開始', 'info');
+  } else {
+    pill.className = 'status-pill stopped';
+    dot.className = 'sdot s';
+    lbl.textContent = 'STOPPED';
+    addLog('warn', '🔴 システム停止');
+    stopAutoScan();
+    showToast('システム停止', 'sell');
+  }
+}
+
+// ════════════════════════════════════════════════════════════
+//  SCAN — 4-STAGE WATERFALL FILTER
+//  Stage1: RSI → Stage2: MACD → Stage3: 出来高 → Stage4: Claude AI
+// ════════════════════════════════════════════════════════════
+let scanInterval = null;
+let lastAICandidate = null;  // stores the coin that passed all 3 tech filters
+
+function startAutoScan() {
+  if (scanInterval) clearInterval(scanInterval);
+  runScan();
+  scanInterval = setInterval(runScan, STATE.settings.interval * 60 * 1000);
+}
+
+function stopAutoScan() {
+  if (scanInterval) clearInterval(scanInterval);
+}
+
+async function runScan() {
+  const now = new Date().toLocaleTimeString('ja-JP');
+  document.getElementById('lastScanTime').textContent  = now + ' スキャン済';
+  const t2 = document.getElementById('lastScanTime2');
+  if (t2) t2.textContent = now;
+
+  resetPipeline();
+  document.getElementById('aiResultCard').style.display = 'none';
+  lastAICandidate = null;
+
+  const isFull = APP_MODE === 'FULL';
+  const modeTag = isFull ? '[リアルデータ]' : '[シミュ]';
+  addLog('info', `─── スキャン開始 (${now}) ${modeTag} ───`);
+
+  // FULLモード: CMCからリアル銘柄取得
+  if (isFull) {
+    addLog('info', 'STEP1-1: CMC新規上場銘柄を取得中...');
+    await fetchRealCoins();
+  }
+
+  const allCoins = Object.entries(COINS);
+  document.getElementById('pipeIn').textContent = allCoins.length;
+  setPipeActive('pipe1');
+  addLog('info', `STEP1: ${allCoins.length}銘柄をリアルデータで銘柄スキャン中...`);
+
+  // ── STAGE 1〜3: 各銘柄のテクニカルデータを取得してフィルター ──
+  const rsiResults = [];
+  for (const [sym, coin] of allCoins) {
+    let rsi, macdObj, volRatio;
+
+    if (isFull) {
+      // Bitgetからリアルデータ取得
+      const tech = await fetchRealTech(sym);
+      if (tech) {
+        rsi      = tech.rsi;
+        macdObj  = tech.macd;
+        volRatio = tech.volRatio;
+        // COINSのデータも更新
+        if (tech.candles && tech.candles.length) {
+          COINS[sym].price = tech.candles[tech.candles.length - 1].close || COINS[sym].price;
+        }
+      } else {
+        // Bitgetに存在しない銘柄はスキップ
+        rsiResults.push({ sym, coin, rsi: null, macdObj: null, volRatio: null, pass: false, macdPass: false, volPass: false, skipped: true });
+        setChipState(sym, 'rsi', 'skip');
+        continue;
+      }
+    } else {
+      rsi      = Math.round(25 + Math.random() * 55);
+      macdObj  = { histogram: Math.random() - 0.4, isCross: Math.random() > 0.45 };
+      volRatio = +(1.2 + Math.random() * 4.5).toFixed(2);
+    }
+
+    const rsiPass  = rsi !== null && rsi >= STATE.settings.rsiMin && rsi <= STATE.settings.rsiMax;
+    const macdPass = macdObj !== null && (macdObj.isCross !== undefined ? macdObj.isCross : macdObj.histogram > 0);
+    const volPass  = volRatio !== null && volRatio >= STATE.settings.volMultiple;
+
+    rsiResults.push({ sym, coin, rsi, macdObj, volRatio, pass: rsiPass, macdPass: rsiPass && macdPass, volPass: rsiPass && macdPass && volPass });
+  }
+
+  // RSI集計
+  const rsiPass = rsiResults.filter(r => r.pass);
+  document.getElementById('pipeRsiC').textContent = rsiPass.length + '/' + allCoins.length;
+  document.getElementById('pipeRsiN').textContent = rsiPass.length + '銘柄';
+  setPipePass('pipe1', 'arr1');
+  addLog('info', `RSI通過: ${rsiPass.length}/${allCoins.length}銘柄 — ${rsiPass.map(r=>r.sym).join(', ')}`);
+  renderFilterRows(rsiResults, null, null, null);
+  await sleep(300);
+
+  if (!rsiPass.length) {
+    addLog('warn', 'RSI通過銘柄なし → AI分析スキップ');
+    document.getElementById('scanResultCount').textContent = `全${allCoins.length} → RSI:0 → MACD:0 → 出来高:0 ${modeTag}`;
+    return;
+  }
+
+  // MACD集計
+  setPipeActive('pipe2');
+  const macdPass = rsiResults.filter(r => r.macdPass);
+  document.getElementById('pipeMacdC').textContent = macdPass.length + '/' + rsiPass.length;
+  document.getElementById('pipeMacdN').textContent = macdPass.length + '銘柄';
+  setPipePass('pipe2', 'arr2');
+  addLog('info', `MACD通過: ${macdPass.length}/${rsiPass.length}銘柄 — ${macdPass.map(r=>r.sym).join(', ')}`);
+  renderFilterRows(rsiResults, rsiResults, null, null);
+  await sleep(300);
+
+  if (!macdPass.length) {
+    addLog('warn', 'MACD通過銘柄なし → AI分析スキップ');
+    document.getElementById('scanResultCount').textContent = `全${allCoins.length} → RSI:${rsiPass.length} → MACD:0 → 出来高:0 ${modeTag}`;
+    return;
+  }
+
+  // 出来高集計
+  setPipeActive('pipe3');
+  const volPassList = rsiResults.filter(r => r.volPass);
+  document.getElementById('pipeVolC').textContent = volPassList.length + '/' + macdPass.length;
+  document.getElementById('pipeVolN').textContent = volPassList.length + '銘柄';
+  setPipePass('pipe3', 'arr3');
+  addLog('info', `出来高通過: ${volPassList.length}/${macdPass.length}銘柄 — ${volPassList.map(r=>r.sym).join(', ')}`);
+  renderFilterRows(rsiResults, rsiResults, rsiResults, null);
+  document.getElementById('scanResultCount').textContent =
+    `全${allCoins.length} → RSI:${rsiPass.length} → MACD:${macdPass.length} → 出来高:${volPassList.length} ${modeTag}`;
+
+  const firstSignal = volPassList[0] || macdPass[0] || rsiPass[0];
+  if (firstSignal) updateSignalsFromTech(firstSignal);
+  await sleep(300);
+
+  if (!volPassList.length) {
+    addLog('warn', '出来高通過銘柄なし → AI分析スキップ');
+    document.getElementById('pipeAiN').textContent = 'スキップ';
+    return;
+  }
+
+  // ── STAGE 4: Claude AI ──────────────────────────────────
+  const best = volPassList.sort((a,b) => (b.volRatio||0) - (a.volRatio||0))[0];
+  lastAICandidate = best;
+
+  addLog('ai', `STEP4: Claude AI 分析開始 → ${best.sym} (RSI:${best.rsi?.toFixed(1)} MACD:${best.macdObj?.isCross?'GC↑':'↑'} Vol:${best.volRatio?.toFixed(2)}x)`);
+  setPipeActive('pipe4');
+  setChipState(best.sym, 'ai', 'ai-run');
+  renderFilterRows(rsiResults, rsiResults, rsiResults, best.sym);
+
+  document.getElementById('aiResultCard').style.display = 'block';
+  document.getElementById('aiResultSym').textContent = best.sym;
+  document.getElementById('aiResultBody').textContent = '🤖 Claude AI が分析中...';
+  document.getElementById('aiScore').textContent   = '…';
+  document.getElementById('aiVerdict').textContent = '…';
+  document.getElementById('aiConf').textContent    = '…';
+  document.getElementById('aiEntryBtn').style.display = 'none';
+
+  await callClaudeAI(best, rsiResults, rsiResults, volPassList);
+}
+
+// ════════════════════════════════════════════════════════════
+//  ON-CHAIN SCORE — 4指標を0〜100点でスコアリング
+//  各指標を独立スコア化してClaude AIに渡す
+// ════════════════════════════════════════════════════════════
+function calcOnChainScore(coin, simNoise = true) {
+  // ── デモ時はノイズを加えてリアリティを演出 ──
+  const n = (base, range) => simNoise ? base + (Math.random() - 0.5) * range : base;
+
+  // 1) 24時間出来高スコア (0〜100)
+  //    $10M未満=0, $50M=40, $200M=70, $500M以上=100
+  const vol = n(coin.vol24h, coin.vol24h * 0.15);
+  const volScore = vol >= 500e6 ? 100
+                 : vol >= 200e6 ? 70 + (vol - 200e6) / (300e6) * 30
+                 : vol >= 50e6  ? 40 + (vol - 50e6)  / (150e6) * 30
+                 : vol >= 10e6  ? 10 + (vol - 10e6)  / (40e6)  * 30
+                 : 0;
+
+  // 2) 板の厚みスコア (0〜100)
+  //    bid/ask合計で評価。薄い板=流動性リスク
+  const bid = n(coin.bidDepth, coin.bidDepth * 0.2);
+  const ask = n(coin.askDepth, coin.askDepth * 0.2);
+  const spread = Math.abs(bid - ask) / ((bid + ask) / 2) * 100; // spread%
+  const depthTotal = bid + ask;
+  const depthScore = depthTotal >= 500e3 ? 100
+                   : depthTotal >= 200e3 ? 70 + (depthTotal - 200e3) / 300e3 * 30
+                   : depthTotal >= 50e3  ? 40 + (depthTotal - 50e3)  / 150e3 * 30
+                   : depthTotal >= 10e3  ? 10 + (depthTotal - 10e3)  / 40e3  * 30
+                   : 0;
+  // スプレッドが広いほどペナルティ
+  const depthFinal = depthScore * (1 - Math.min(spread / 5, 0.5));
+
+  // 3) 上位10ウォレット保有率スコア (0〜100) — 少ないほど良い
+  const top10 = n(coin.top10, 5);
+  const top10Score = top10 <= 15 ? 100
+                   : top10 <= 25 ? 80 - (top10 - 15) * 2
+                   : top10 <= 40 ? 60 - (top10 - 25) * 1.5
+                   : top10 <= 60 ? 37.5 - (top10 - 40) * 1.2
+                   : Math.max(0, 13.5 - (top10 - 60));
+
+  // 4) LPロック率スコア (0〜100) — 高いほど安全
+  //    Memeコイン(0%)は中立扱い(35点), 100%=100点
+  const lp = n(coin.lpLock, 5);
+  const lpScore = coin.lpLock === 0 && ['TURBO','MOODENG','PEPE','WIF','BOME'].includes(
+    Object.keys(COINS).find(k => COINS[k] === coin) || ''
+  ) ? 35  // Memeは構造上LPなし→中立
+    : lp >= 95 ? 100
+    : lp >= 80 ? 80 + (lp - 80) * 1.33
+    : lp >= 50 ? 50 + (lp - 50)
+    : lp > 0   ? lp
+    : 0;         // 0%かつDeFi系=高リスク
+
+  // 重み付き合計
+  // 出来高30% / 板20% / 集中度30% / LP20%
+  const composite = Math.round(
+    volScore   * 0.30 +
+    depthFinal * 0.20 +
+    top10Score * 0.30 +
+    lpScore    * 0.20
+  );
+
+  return {
+    volScore:   Math.round(volScore),
+    depthScore: Math.round(depthFinal),
+    top10Score: Math.round(top10Score),
+    lpScore:    Math.round(lpScore),
+    composite,
+    // raw values for display
+    vol, bid, ask, spread: spread.toFixed(2), top10, lp,
+  };
+}
+
+// ── Claude API call ───────────────────────────────────────
+async function callClaudeAI(best, rsiR, macdR, volR) {
+  const coin = COINS[best.sym] || {};
+  const sym  = best.sym;
+
+  // オンチェーン4指標を計算
+  const oc = calcOnChainScore(coin);
+
+  // 各指標の評価テキスト化
+  const volGrade   = oc.volScore   >= 70 ? '✅ 高流動性' : oc.volScore   >= 40 ? '⚠ 中程度' : '❌ 低流動性';
+  const depthGrade = oc.depthScore >= 70 ? '✅ 板厚い'   : oc.depthScore >= 40 ? '⚠ 薄め'   : '❌ 極薄';
+  const top10Grade = oc.top10Score >= 70 ? '✅ 分散良好'  : oc.top10Score >= 40 ? '⚠ やや集中': '❌ 高集中';
+  const lpGrade    = oc.lpScore    >= 70 ? '✅ ロック済'  : oc.lpScore    >= 35 ? '⚠ 部分/Meme': '❌ 未ロック';
+
+  const fmtVol  = oc.vol   >= 1e9 ? (oc.vol/1e9).toFixed(1)+'B'  : (oc.vol/1e6).toFixed(0)+'M';
+  const fmtBid  = oc.bid   >= 1e6 ? (oc.bid/1e6).toFixed(2)+'M'  : (oc.bid/1e3).toFixed(0)+'K';
+  const fmtAsk  = oc.ask   >= 1e6 ? (oc.ask/1e6).toFixed(2)+'M'  : (oc.ask/1e3).toFixed(0)+'K';
+
+  const prompt = `あなたは暗号通貨の新規上場コイン専門トレーダーです。
+テクニカルフィルター（RSI/MACD/出来高比率）を全通過した銘柄について、
+以下のオンチェーン指標も含めた総合的なエントリー判断を行ってください。
+
+━━━━ 基本情報 ━━━━
+銘柄: ${sym}
+上場経過: ${coin.listAge || '?'}時間
+トレード条件: 現物取引/Bitget | TP×${STATE.settings.tp} | SL${STATE.settings.slPercent}% | 投入${STATE.settings.sizePercent}%
+
+━━━━ テクニカル指標（5分足）━━━━
+RSI: ${best.rsi}（40〜70 ✅通過）
+MACD: ${best.macd ? 'ゴールデンクロス ✅' : 'クロス確認済 ✅'}
+出来高比率: ${best.volRatio}x（≥2x ✅通過）
+
+━━━━ オンチェーン指標（重点評価）━━━━
+① 24時間出来高: $${fmtVol} → スコア${oc.volScore}/100 ${volGrade}
+② 板の厚み: Bid$${fmtBid}/Ask$${fmtAsk} スプレッド${oc.spread}% → スコア${oc.depthScore}/100 ${depthGrade}
+③ 上位10ウォレット保有率: ${oc.top10.toFixed(1)}% → スコア${oc.top10Score}/100 ${top10Grade}
+④ LPロック率: ${oc.lp.toFixed(1)}% → スコア${oc.lpScore}/100 ${lpGrade}
+オンチェーン総合スコア: ${oc.composite}/100
+
+━━━━ 回答形式（日本語・250文字以内）━━━━
+【総合判定】BUY / HOLD / SKIP のいずれか
+【判断根拠】テクニカルとオンチェーン両面から2〜3文
+【最大リスク】最も懸念される点1つ
+【スコア】XX/100（テクニカル+オンチェーンの総合評価）
+【信頼度】HIGH / MEDIUM / LOW`;
+
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 700,
+        messages: [{ role: 'user', content: prompt }]
+      })
+    });
+    const json = await res.json();
+    const text = json.content?.map(b => b.text || '').join('') || 'エラー';
+
+    // Parse response
+    const scoreM   = text.match(/【スコア】\s*(\d+)/);
+    const verdictM = text.match(/【総合判定】\s*(BUY|HOLD|SKIP)/);
+    const confM    = text.match(/【信頼度】\s*(HIGH|MEDIUM|LOW)/);
+    const score    = scoreM   ? parseInt(scoreM[1])  : oc.composite;
+    const verdict  = verdictM ? verdictM[1]          : 'HOLD';
+    const conf     = confM    ? confM[1]             : 'MEDIUM';
+
+    const verdictColor = verdict === 'BUY' ? 'var(--green)' : verdict === 'SKIP' ? 'var(--red)' : 'var(--gold)';
+    const confColor    = conf === 'HIGH' ? 'var(--green)' : conf === 'LOW' ? 'var(--red)' : 'var(--gold)';
+    const scoreColor   = score >= 70 ? 'var(--green)' : score >= 50 ? 'var(--gold)' : 'var(--red)';
+
+    document.getElementById('aiResultBody').textContent = text;
+    document.getElementById('aiScore').textContent   = score;
+    document.getElementById('aiScore').style.color   = scoreColor;
+    document.getElementById('aiVerdict').textContent = verdict;
+    document.getElementById('aiVerdict').style.color = verdictColor;
+    document.getElementById('aiConf').textContent    = conf;
+    document.getElementById('aiConf').style.color    = confColor;
+    document.getElementById('pipeAiN').textContent   = score + '点';
+
+    // オンチェーン内訳を表示更新
+    updateOnChainPanel(oc, sym);
+
+    setPipePassColor('pipe4', verdict === 'BUY' ? 'var(--green)' : 'var(--purple)');
+    setChipState(best.sym, 'ai', verdict === 'BUY' ? 'ai-pass' : 'skip');
+
+    addLog('ai', `Claude AI 判定: ${sym} → ${verdict} (${score}/100, ${conf}) | OC: Vol${oc.volScore} 板${oc.depthScore} 集中${oc.top10Score} LP${oc.lpScore}`);
+
+    if (verdict === 'BUY' && score >= STATE.settings.aiThreshold) {
+      document.getElementById('aiEntryBtn').style.display = 'block';
+      addLog('buy', `✅ AIエントリーシグナル: ${sym} — スコア${score}, OC総合${oc.composite}`);
+      showToast(`${sym} BUYシグナル！ スコア: ${score}`, 'buy');
+      if (STATE.running && STATE.settings.autoEntry) {
+        const openCount = STATE.positions.filter(Boolean).length;
+        if (openCount < STATE.settings.maxPos) {
+          addLog('ai', `自動エントリー実行: ${sym}`);
+          setTimeout(() => autoEnter({ sym, aiScore: score }), 1000);
+        }
+      }
+    } else {
+      addLog('info', `${sym}: ${verdict} (${score}/100) — エントリーなし`);
+    }
+
+  } catch (e) {
+    document.getElementById('aiResultBody').textContent =
+      `Claude AI エラー: ${e.message}\n\nAPIキーを設定画面で確認してください。`;
+    addLog('warn', `Claude AI エラー: ${e.message}`);
+    setPipePassColor('pipe4', 'var(--red)');
+  }
+}
+
+// ── On-chain panel updater ────────────────────────────────
+function updateOnChainPanel(oc, sym) {
+  const panel = document.getElementById('ocBreakdown');
+  if (!panel) return;
+
+  const bar = (score) => {
+    const col = score >= 70 ? '#00ff88' : score >= 40 ? '#ffd700' : '#ff3355';
+    return `<div style="height:4px;background:#1c3048;border-radius:2px;overflow:hidden;margin-top:3px">
+      <div style="height:100%;width:${score}%;background:${col};border-radius:2px;transition:width .6s ease"></div>
+    </div>`;
+  };
+  const scoreChip = (s) => {
+    const col = s >= 70 ? '#00ff88' : s >= 40 ? '#ffd700' : '#ff3355';
+    return `<span style="font-family:'Orbitron',monospace;font-size:13px;font-weight:700;color:${col}">${s}</span>`;
+  };
+
+  const fmtVol = oc.vol >= 1e9 ? (oc.vol/1e9).toFixed(1)+'B' : (oc.vol/1e6).toFixed(0)+'M';
+  const fmtBid = oc.bid >= 1e6 ? (oc.bid/1e6).toFixed(2)+'M' : (oc.bid/1e3).toFixed(0)+'K';
+  const fmtAsk = oc.ask >= 1e6 ? (oc.ask/1e6).toFixed(2)+'M' : (oc.ask/1e3).toFixed(0)+'K';
+
+  panel.innerHTML = `
+    <div style="font-family:'Orbitron',monospace;font-size:9px;letter-spacing:1.5px;color:var(--accent);margin-bottom:10px">
+      ◈ オンチェーン指標 — ${sym}
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+
+      <!-- 24H出来高 -->
+      <div style="background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:10px">
+        <div style="font-size:8px;color:var(--muted);letter-spacing:.8px;margin-bottom:4px">24H 出来高</div>
+        <div style="display:flex;justify-content:space-between;align-items:baseline">
+          <span style="font-size:12px;color:var(--text)">$${fmtVol}</span>
+          ${scoreChip(oc.volScore)}
+        </div>
+        ${bar(oc.volScore)}
+        <div style="font-size:9px;color:var(--muted);margin-top:4px">${oc.volScore>=70?'✅ 高流動性':oc.volScore>=40?'⚠ 中程度':'❌ 低流動性'}</div>
+      </div>
+
+      <!-- 板の厚み -->
+      <div style="background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:10px">
+        <div style="font-size:8px;color:var(--muted);letter-spacing:.8px;margin-bottom:4px">板の厚み</div>
+        <div style="display:flex;justify-content:space-between;align-items:baseline">
+          <span style="font-size:11px;color:var(--text)">B$${fmtBid}/A$${fmtAsk}</span>
+          ${scoreChip(oc.depthScore)}
+        </div>
+        ${bar(oc.depthScore)}
+        <div style="font-size:9px;color:var(--muted);margin-top:4px">スプレッド ${oc.spread}%</div>
+      </div>
+
+      <!-- 上位10ウォレット -->
+      <div style="background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:10px">
+        <div style="font-size:8px;color:var(--muted);letter-spacing:.8px;margin-bottom:4px">上位10ウォレット</div>
+        <div style="display:flex;justify-content:space-between;align-items:baseline">
+          <span style="font-size:12px;color:var(--text)">${oc.top10.toFixed(1)}%</span>
+          ${scoreChip(oc.top10Score)}
+        </div>
+        ${bar(oc.top10Score)}
+        <div style="font-size:9px;color:var(--muted);margin-top:4px">${oc.top10Score>=70?'✅ 分散良好':oc.top10Score>=40?'⚠ やや集中':'❌ 高集中'}</div>
+      </div>
+
+      <!-- LPロック率 -->
+      <div style="background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:10px">
+        <div style="font-size:8px;color:var(--muted);letter-spacing:.8px;margin-bottom:4px">LP ロック率</div>
+        <div style="display:flex;justify-content:space-between;align-items:baseline">
+          <span style="font-size:12px;color:var(--text)">${oc.lp.toFixed(1)}%</span>
+          ${scoreChip(oc.lpScore)}
+        </div>
+        ${bar(oc.lpScore)}
+        <div style="font-size:9px;color:var(--muted);margin-top:4px">${oc.lpScore>=70?'✅ ロック済':oc.lpScore>=35?'⚠ Meme/部分':'❌ 未ロック危険'}</div>
+      </div>
+
+    </div>
+    <!-- Composite score bar -->
+    <div style="margin-top:10px;padding:10px;background:var(--bg2);border:1px solid var(--border);border-radius:6px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+        <span style="font-size:10px;color:var(--muted)">オンチェーン総合スコア</span>
+        <span style="font-family:'Orbitron',monospace;font-size:16px;font-weight:700;color:${oc.composite>=70?'var(--green)':oc.composite>=40?'var(--gold)':'var(--red)'}">${oc.composite}<span style="font-size:10px;color:var(--muted)">/100</span></span>
+      </div>
+      <div style="height:6px;background:#1c3048;border-radius:3px;overflow:hidden">
+        <div style="height:100%;width:${oc.composite}%;background:linear-gradient(90deg,${oc.composite>=70?'#00ff88,#00e5ff':oc.composite>=40?'#ffd700,#ffb347':'#ff3355,#ff6b35'});border-radius:3px;transition:width .8s ease"></div>
+      </div>
+      <div style="display:flex;justify-content:space-between;font-size:8px;color:var(--muted);margin-top:3px">
+        <span>Vol×30%</span><span>板×20%</span><span>集中×30%</span><span>LP×20%</span>
+      </div>
+    </div>`;
+}
+
+// ── Render per-coin filter breakdown ─────────────────────
+let chipStates = {}; // sym -> { rsi, macd, vol, ai }
+
+function renderFilterRows(rsiR, macdR, volR, aiSym) {
+  chipStates = {};
+  const container = document.getElementById('scanList');
+  container.innerHTML = Object.keys(COINS).map(sym => {
+    const r1 = rsiR?.find(r => r.sym === sym);
+    const r2 = macdR?.find(r => r.sym === sym);
+    const r3 = volR?.find(r => r.sym === sym);
+    const coin = COINS[sym];
+
+    const rsiVal  = r1 ? r1.rsi   : null;
+    const macdVal = r2 ? r2.macd  : null;
+    const volVal  = r3 ? r3.volRatio : null;
+
+    const rsiP  = r1?.pass;
+    const macdP = r2?.macdPass;
+    const volP  = r3?.volPass;
+    const isAI  = sym === aiSym;
+
+    const rsiCls  = r1 == null ? 'skip' : rsiP  ? 'pass' : 'fail';
+    const macdCls = r2 == null || !rsiP ? 'skip' : macdP ? 'pass' : 'fail';
+    const volCls  = r3 == null || !macdP ? 'skip' : volP  ? 'pass' : 'fail';
+    const aiCls   = !volP ? 'skip' : isAI ? 'ai-run' : 'skip';
+
+    // Overall badge
+    let badge = '';
+    if (volP && isAI) badge = `<span style="font-family:'Orbitron',monospace;font-size:9px;color:var(--purple)">🤖 AI分析中</span>`;
+    else if (volP)    badge = `<span style="font-family:'Orbitron',monospace;font-size:9px;color:var(--green)">✅ AI待機</span>`;
+    else if (macdP)   badge = `<span style="font-size:9px;color:var(--orange)">Vol落選</span>`;
+    else if (rsiP)    badge = `<span style="font-size:9px;color:var(--gold)">MACD落選</span>`;
+    else if (r1)      badge = `<span style="font-size:9px;color:var(--red)">RSI落選</span>`;
+    else              badge = `<span style="font-size:9px;color:var(--muted)">未スキャン</span>`;
+
+    chipStates[sym] = { rsiCls, macdCls, volCls, aiCls };
+
+    return `<div class="filter-row" id="row-${sym}">
+      <div class="filter-row-head">
+        <span class="fr-sym">${sym}</span>
+        <span class="fr-age">${coin.listAge}H前上場</span>
+        <span class="fr-result">${badge}</span>
+      </div>
+      <div class="filter-stages" id="stages-${sym}">
+        <div class="fs-chip ${rsiCls}" id="chip-${sym}-rsi">
+          RSI<br>${rsiVal != null ? rsiVal : '—'}
+        </div>
+        <span class="fs-sep">▶</span>
+        <div class="fs-chip ${macdCls}" id="chip-${sym}-macd">
+          MACD<br>${macdVal != null ? (macdVal ? '↑' : '—') : '—'}
+        </div>
+        <span class="fs-sep">▶</span>
+        <div class="fs-chip ${volCls}" id="chip-${sym}-vol">
+          Vol<br>${volVal != null ? volVal + 'x' : '—'}
+        </div>
+        <span class="fs-sep">▶</span>
+        <div class="fs-chip ${aiCls}" id="chip-${sym}-ai">
+          AI<br>${isAI ? '…' : '—'}
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function setChipState(sym, stage, cls) {
+  const el = document.getElementById(`chip-${sym}-${stage}`);
+  if (el) el.className = `fs-chip ${cls}`;
+}
+
+// ── Pipeline visual helpers ───────────────────────────────
+function resetPipeline() {
+  ['pipe1','pipe2','pipe3','pipe4'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.className = id === 'pipe4' ? 'pipe-stage pipe-ai' : 'pipe-stage';
+  });
+  ['arr1','arr2','arr3'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.className = 'pipe-arrow';
+  });
+  ['pipeRsiC','pipeMacdC','pipeVolC','pipeRsiN','pipeMacdN','pipeVolN','pipeAiN'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = '—';
+  });
+}
+
+function setPipeActive(id) {
+  document.getElementById(id).classList.add('active');
+}
+
+function setPipePass(pipeId, arrId) {
+  const p = document.getElementById(pipeId);
+  p.classList.remove('active');
+  p.classList.add('pass');
+  if (arrId) document.getElementById(arrId).classList.add('lit');
+}
+
+function setPipePassColor(pipeId, color) {
+  const el = document.getElementById(pipeId);
+  el.classList.remove('active');
+  el.classList.add('ai-done');
+  const num = el.querySelector('.pipe-num');
+  if (num) { num.style.background = color; num.style.boxShadow = `0 0 12px ${color}`; }
+}
+
+// ── Update dashboard signals from tech + on-chain data ───
+function updateSignalsFromTech(r) {
+  if (!r) return;
+  const set = (id, val, pct, col) => {
+    const sv = document.getElementById('sv-' + id);
+    const sb = document.getElementById('sb-' + id);
+    if (sv) { sv.textContent = val; sv.style.color = col; }
+    if (sb) { sb.style.width = pct + '%'; sb.style.background = col; }
+  };
+  set('rsi',  r.rsi ?? '—', r.rsi ?? 0,
+      r.rsi >= 40 && r.rsi <= 70 ? 'var(--gold)' : 'var(--red)');
+  set('macd', r.macd ? 'BULL↑' : (r.macd === false ? 'BEAR↓' : '—'), r.macd ? 80 : 20,
+      r.macd ? 'var(--orange)' : 'var(--muted)');
+  set('vol',  r.volRatio ? r.volRatio + 'x' : '—',
+      r.volRatio ? Math.min(r.volRatio / 5 * 100, 100) : 0,
+      r.volRatio >= 2 ? 'var(--green)' : 'var(--muted)');
+  set('tech', r.volPass ? '3/3 通過' : r.macdPass ? '2/3' : '1/3',
+      r.volPass ? 100 : r.macdPass ? 66 : 33,
+      r.volPass ? 'var(--accent)' : 'var(--muted)');
+
+  const entryEl = document.getElementById('sv-entry');
+  if (entryEl) {
+    entryEl.textContent = r.volPass ? 'AI分析中' : 'WAIT';
+    entryEl.style.color = r.volPass ? 'var(--purple)' : 'var(--muted)';
+  }
+
+  // オンチェーン4指標をダッシュボードに反映
+  const coin = COINS[r.sym];
+  if (coin) {
+    const oc = calcOnChainScore(coin);
+    const ocSet = (suffix, val, pct, col) => {
+      set('oc-' + suffix, val, pct, col);
+    };
+    const fmtVol = oc.vol >= 1e9 ? (oc.vol/1e9).toFixed(1)+'B'
+                 : oc.vol >= 1e6 ? (oc.vol/1e6).toFixed(0)+'M' : '—';
+    const fmtDep = (oc.bid + oc.ask) >= 1e6
+                 ? ((oc.bid+oc.ask)/1e6).toFixed(1)+'M'
+                 : ((oc.bid+oc.ask)/1e3).toFixed(0)+'K';
+    const volC  = oc.volScore  >= 70 ? 'var(--accent)' : oc.volScore  >= 40 ? 'var(--gold)' : 'var(--red)';
+    const depC  = oc.depthScore>= 70 ? 'var(--gold)'   : oc.depthScore>= 40 ? 'var(--orange)': 'var(--red)';
+    const topC  = oc.top10Score>= 70 ? 'var(--green)'  : oc.top10Score>= 40 ? 'var(--gold)' : 'var(--red)';
+    const lpC   = oc.lpScore   >= 70 ? 'var(--purple)' : oc.lpScore   >= 35 ? 'var(--muted)': 'var(--red)';
+    const compC = oc.composite >= 70 ? 'var(--green)'  : oc.composite >= 40 ? 'var(--gold)' : 'var(--red)';
+    ocSet('vol',  '$'+fmtVol,           oc.volScore,   volC);
+    ocSet('dep',  '$'+fmtDep,           oc.depthScore, depC);
+    ocSet('top',  oc.top10.toFixed(0)+'%', oc.top10Score, topC);
+    ocSet('lp',   oc.lp.toFixed(0)+'%',   oc.lpScore,    lpC);
+    ocSet('comp', oc.composite+'/100',  oc.composite,  compC);
+  }
+
+  if (r.sym) {
+    document.getElementById('chartTitle').textContent = `◈ ${r.sym} ライブチャート`;
+    buildLiveChart(r.sym);
+  }
+}
+
+// ── Entry from AI signal ──────────────────────────────────
+function entryFromAI() {
+  if (!lastAICandidate) return;
+  document.getElementById('manualSym').value = lastAICandidate.sym;
+  goPage('scan', document.querySelector('.ni:nth-child(2)'));
+  openConfirm('manual');
+}
+
+function updateCondDisplay() {} // legacy stub
+
+// Live-wire all setting inputs to update preview on change
+document.addEventListener('DOMContentLoaded', () => {
+  const ids = ['set-maxage','set-aithresh','set-rsimin','set-rsimax',
+               'set-volmul','set-liq','slSlider',
+               'set-tp1pct','set-tp1sell','set-tp2pct','set-tp2sell','set-trail'];
+  ids.forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.addEventListener('input', () => {
+      // temp-apply to STATE for preview
+      const tmpSave = { ...STATE.settings };
+      saveToState();
+      updatePreview();
+      updateTPRemain();
+    });
+  });
+});
+
+function saveToState() {
+  const s = STATE.settings;
+  const g = id => { const el=document.getElementById(id); return el ? el.value : null; };
+  if(g('set-maxage'))   s.maxListingAge = parseInt(g('set-maxage'))    || 48;
+  if(g('set-aithresh')) s.aiThreshold   = parseInt(g('set-aithresh'))  || 65;
+  if(g('set-rsimin'))   s.rsiMin        = parseInt(g('set-rsimin'))    || 40;
+  if(g('set-rsimax'))   s.rsiMax        = parseInt(g('set-rsimax'))    || 70;
+  if(g('set-volmul'))   s.volMultiple   = parseFloat(g('set-volmul'))  || 2.0;
+  if(g('set-liq'))      s.minLiquidity  = (parseFloat(g('set-liq'))||100)*1000;
+  if(g('slSlider'))     s.slPercent     = parseInt(g('slSlider'))      || -8;
+  if(g('set-tp1pct'))   s.tp1Pct        = parseInt(g('set-tp1pct'))    || 20;
+  if(g('set-tp1sell'))  s.tp1Sell       = parseInt(g('set-tp1sell'))   || 50;
+  if(g('set-tp2pct'))   s.tp2Pct        = parseInt(g('set-tp2pct'))    || 40;
+  if(g('set-tp2sell'))  s.tp2Sell       = parseInt(g('set-tp2sell'))   || 25;
+  if(g('set-trail'))    s.trailingDrop  = parseInt(g('set-trail'))     || 10;
+}
+
+// ════════════════════════════════════════════════════════════
+//  ORDERS
+// ════════════════════════════════════════════════════════════
+function autoEnter(r) {
+  const slot = STATE.positions.findIndex(p => !p);
+  if (slot === -1) return;
+  const coin = COINS[r.sym];
+  const amount = STATE.balance * (STATE.settings.sizePercent / 100);
+  const price  = coin.price * (1 + (Math.random() - 0.5) * 0.01);
+  const qty    = amount / price;
+  const tp     = price * STATE.settings.tp;
+  const sl     = price * (1 + STATE.settings.slPercent / 100);
+
+  // オンチェーンスコアをポジションに記録
+  const oc = calcOnChainScore(coin, false);
+
+  STATE.positions[slot] = {
+    sym: r.sym, name: coin.name, price, qty, amount, tp, sl,
+    openTime: new Date(), pnl: 0, pnlPct: 0,
+    currentPrice: price,
+    aiScore: r.aiScore || '—',
+    ocScore: oc.composite,
+  };
+  STATE.balance -= amount;
+  renderPositions();
+  renderMetrics();
+  addLog('buy', `📗 BUY ${r.sym} @ $${price.toFixed(6)} | AI:${r.aiScore||'—'} OC:${oc.composite} | TP:$${tp.toFixed(6)} SL:$${sl.toFixed(6)}`);
+  addLog('info', `  └ OC内訳 Vol:${oc.volScore} 板:${oc.depthScore} 集中:${oc.top10Score} LP:${oc.lpScore}`);
+  showToast(`✅ ${r.sym} エントリー完了`, 'buy');
+  recordHistoryOpen(slot);
+  startPriceSim();
+}
+
+function openConfirm(type) {
+  const sym = document.getElementById('manualSym').value;
+  const amt = parseFloat(document.getElementById('manualAmt').value);
+  const sl  = parseFloat(document.getElementById('manualSL').value);
+  const coin = COINS[sym] || { price: 0.01, name: sym };
+  const price = coin.price * (1 + (Math.random() - 0.5) * 0.01);
+  const tp    = price * STATE.settings.tp;
+  const slP   = price * (1 + sl / 100);
+  const qty   = amt / price;
+
+  STATE.pendingOrder = { sym, name: coin.name, price, qty, amount: amt, tp, sl: slP, slPct: sl };
+  document.getElementById('mTitle').textContent = `${sym} 買い注文 確認`;
+  document.getElementById('mDetail').innerHTML = `
+    <div class="row"><span class="rk">コイン</span><span class="hl">${sym}</span></div>
+    <div class="row"><span class="rk">エントリー価格</span><span>$${price.toFixed(6)}</span></div>
+    <div class="row"><span class="rk">投入額</span><span>$${amt.toFixed(2)} USDT</span></div>
+    <div class="row"><span class="rk">数量</span><span>${qty.toFixed(2)}</span></div>
+    <div class="row"><span class="rk">利確ライン (3x)</span><span class="pos-txt">$${tp.toFixed(6)}</span></div>
+    <div class="row"><span class="rk">損切りライン</span><span class="neg-txt">$${slP.toFixed(6)} (${sl}%)</span></div>`;
+  document.getElementById('modal').classList.add('open');
+}
+
+function executeOrder() {
+  closeModal();
+  const o = STATE.pendingOrder;
+  if (!o) return;
+  const slot = STATE.positions.findIndex(p => !p);
+  if (slot === -1) { showToast('ポジション満杯 (最大2)', 'warn'); return; }
+  if (STATE.balance < o.amount) { showToast('残高不足', 'warn'); return; }
+
+  STATE.positions[slot] = { ...o, openTime: new Date(), pnl: 0, pnlPct: 0, currentPrice: o.price };
+  STATE.balance -= o.amount;
+  STATE.pendingOrder = null;
+  renderPositions();
+  renderMetrics();
+  addLog('buy', `📗 BUY ${o.sym} @ $${o.price.toFixed(6)} × ${o.qty.toFixed(2)} = $${o.amount.toFixed(2)}`);
+  showToast(`✅ ${o.sym} エントリー完了`, 'buy');
+  recordHistoryOpen(slot);
+  startPriceSim();
+}
+
+function closePosition(slot, reason) {
+  const pos = STATE.positions[slot];
+  if (!pos) return;
+  const exitPrice = pos.currentPrice;
+  const pnl = (exitPrice - pos.price) * pos.qty;
+  const pnlPct = ((exitPrice / pos.price) - 1) * 100;
+  const proceeds = pos.amount + pnl;
+  STATE.balance += proceeds;
+  finalizeHistory(slot, exitPrice, pnl, pnlPct, reason);
+  addLog(pnl >= 0 ? 'buy' : 'sell',
+    `${pnl >= 0 ? '📗' : '📕'} SELL ${pos.sym} @ $${exitPrice.toFixed(6)} | P&L: ${pnl >= 0 ? '+' : ''}$${pnl.toFixed(2)} (${pnlPct.toFixed(1)}%) [${reason}]`);
+  showToast(`${pos.sym} クローズ ${pnl >= 0 ? '✅ +' : '❌ '}$${Math.abs(pnl).toFixed(2)}`, pnl >= 0 ? 'buy' : 'sell');
+  STATE.positions[slot] = null;
+  renderPositions();
+  renderMetrics();
+  renderHistory();
+}
+
+function manualClose(slot) {
+  const pos = STATE.positions[slot];
+  if (!pos) return;
+  document.getElementById('mTitle').textContent = `${pos.sym} クローズ確認`;
+  document.getElementById('mDetail').innerHTML = `
+    <div class="row"><span class="rk">コイン</span><span class="hl">${pos.sym}</span></div>
+    <div class="row"><span class="rk">現在価格</span><span>$${pos.currentPrice.toFixed(6)}</span></div>
+    <div class="row"><span class="rk">エントリー価格</span><span>$${pos.price.toFixed(6)}</span></div>
+    <div class="row"><span class="rk">含み損益</span><span class="${pos.pnl >= 0 ? 'pos-txt' : 'neg-txt'}">${pos.pnl >= 0 ? '+' : ''}$${pos.pnl.toFixed(2)} (${pos.pnlPct.toFixed(1)}%)</span></div>`;
+  STATE.pendingOrder = { type: 'close', slot };
+  document.getElementById('mConfirmBtn').textContent = 'クローズする';
+  document.getElementById('modal').classList.add('open');
+}
+
+function executeOrder() {
+  closeModal();
+  const o = STATE.pendingOrder;
+  if (!o) return;
+
+  if (o.type === 'close') {
+    closePosition(o.slot, '手動クローズ');
+    document.getElementById('mConfirmBtn').textContent = '実行する';
+    return;
+  }
+
+  const slot = STATE.positions.findIndex(p => !p);
+  if (slot === -1) { showToast('ポジション満杯 (最大2)', 'warn'); return; }
+  if (STATE.balance < o.amount) { showToast('残高不足', 'warn'); return; }
+  STATE.positions[slot] = { ...o, openTime: new Date(), pnl: 0, pnlPct: 0, currentPrice: o.price };
+  STATE.balance -= o.amount;
+  STATE.pendingOrder = null;
+  renderPositions();
+  renderMetrics();
+  addLog('buy', `📗 BUY ${o.sym} @ $${o.price.toFixed(6)} × ${o.qty.toFixed(2)} = $${o.amount.toFixed(2)}`);
+  showToast(`✅ ${o.sym} エントリー完了`, 'buy');
+  recordHistoryOpen(slot);
+  startPriceSim();
+}
+
+// ════════════════════════════════════════════════════════════
+//  PRICE SIMULATION
+// ════════════════════════════════════════════════════════════
+function startPriceSim() {
+  if (priceSimInterval) return;
+  priceSimInterval = setInterval(tickPrices, 2000);
+}
+
+function tickPrices() {
+  let anyOpen = false;
+  STATE.positions.forEach((pos, i) => {
+    if (!pos) return;
+    anyOpen = true;
+
+    // 5分足シミュレーション
+    const drift = Math.random() > 0.42 ? 1 : -1;
+    const move  = 1 + drift * (Math.random() * 0.025);
+    pos.currentPrice *= move;
+    pos.pnl    = (pos.currentPrice - pos.price) * pos.qty;
+    pos.pnlPct = ((pos.currentPrice / pos.price) - 1) * 100;
+
+    // 最高値更新
+    if (!pos.highPrice || pos.currentPrice > pos.highPrice) {
+      pos.highPrice = pos.currentPrice;
+    }
+
+    const s = STATE.settings;
+
+    // ── SL チェック ──────────────────────────────────
+    if (s.autoSL && pos.currentPrice <= pos.sl) {
+      addLog('warn', `🛑 SL発動: ${pos.sym} ${pos.pnlPct.toFixed(1)}%`);
+      closePosition(i, `損切り(SL${s.slPercent}%)`);
+      return;
+    }
+
+    if (!s.autoTP) return;
+
+    // ── 利確① ────────────────────────────────────────
+    if (!pos.tp1Done && pos.pnlPct >= s.tp1Pct) {
+      const sellQty   = pos.qty * (s.tp1Sell / 100);
+      const sellValue = sellQty * pos.currentPrice;
+      const profit    = (pos.currentPrice - pos.price) * sellQty;
+      STATE.balance  += sellValue;
+      pos.qty        -= sellQty;
+      pos.amount     -= pos.amount * (s.tp1Sell / 100);
+      pos.tp1Done     = true;
+      addLog('buy', `🎯 利確① ${pos.sym}: +${pos.pnlPct.toFixed(1)}% → ${s.tp1Sell}%売却 +$${profit.toFixed(2)}`);
+      showToast(`${pos.sym} 利確①達成 +${pos.pnlPct.toFixed(0)}%`, 'buy');
+    }
+
+    // ── 利確② ────────────────────────────────────────
+    if (pos.tp1Done && !pos.tp2Done && pos.pnlPct >= s.tp2Pct) {
+      const sellQty   = pos.qty * (s.tp2Sell / 100);
+      const sellValue = sellQty * pos.currentPrice;
+      const profit    = (pos.currentPrice - pos.price) * sellQty;
+      STATE.balance  += sellValue;
+      pos.qty        -= sellQty;
+      pos.amount     -= pos.amount * (s.tp2Sell / 100);
+      pos.tp2Done     = true;
+      // TP②達成 → 損切りラインをTP①価格に引き上げ
+      const tp1Price  = pos.price * (1 + s.tp1Pct / 100);
+      pos.sl          = tp1Price;
+      addLog('buy', `🎯 利確② ${pos.sym}: +${pos.pnlPct.toFixed(1)}% → ${s.tp2Sell}%売却 +$${profit.toFixed(2)}`);
+      addLog('info', `🔒 損切りライン引き上げ: ${pos.sym} → TP①価格 $${tp1Price.toFixed(6)} (+${s.tp1Pct}%)`);
+      showToast(`${pos.sym} 利確②達成 損切りをTP①に引き上げ`, 'buy');
+    }
+
+    // ── トレーリングストップ（利確①②完了後）────────
+    if (pos.tp1Done && pos.tp2Done) {
+      const dropFromHigh = (pos.currentPrice / pos.highPrice - 1) * 100;
+      if (dropFromHigh <= -s.trailingDrop) {
+        addLog('buy', `📉 トレーリング決済 ${pos.sym}: 高値から${dropFromHigh.toFixed(1)}% → 残り全量クローズ`);
+        closePosition(i, `トレーリングST(-${s.trailingDrop}%)`);
+        return;
+      }
+    }
+  });
+
+  if (!anyOpen) {
+    clearInterval(priceSimInterval);
+    priceSimInterval = null;
+  } else {
+    renderPositions();
+    renderMetrics();
+  }
+}
+
+// ════════════════════════════════════════════════════════════
+//  RENDER
+// ════════════════════════════════════════════════════════════
+function renderPositions() {
+  for (let i = 0; i < 2; i++) {
+    const pos = STATE.positions[i];
+    const el  = document.getElementById('posSlot' + i);
+    if (!pos) {
+      el.innerHTML = `
+        <div class="pos-card empty">
+          <div class="pos-header">
+            <span style="font-family:'Orbitron',monospace;font-size:12px;color:var(--muted)">スロット ${i + 1}</span>
+            <span class="pos-badge pb-empty">EMPTY</span>
+          </div>
+          <div style="font-size:10px;color:var(--muted);text-align:center;padding:4px 0">ポジションなし</div>
+        </div>`;
+    } else {
+      const pnlC   = pos.pnl >= 0 ? 'pos-txt' : 'neg-txt';
+      const barC   = pos.pnl >= 0 ? 'var(--green)' : 'var(--red)';
+      const barPct = Math.min(Math.max(pos.pnlPct, 0), 200) / 2;
+      const s      = STATE.settings;
+      const tp1Price = pos.price * (1 + s.tp1Pct / 100);
+      const tp2Price = pos.price * (1 + s.tp2Pct / 100);
+      const slPrice  = pos.price * (1 + s.slPercent / 100);
+      const highDrop = pos.highPrice ? ((pos.currentPrice / pos.highPrice - 1) * 100).toFixed(1) : '—';
+      const stage    = pos.tp2Done ? `TR残 (高値${highDrop}%)` : pos.tp1Done ? '利確①済 → ②待ち' : '監視中';
+      const stagCol  = pos.tp2Done ? 'var(--purple)' : pos.tp1Done ? 'var(--accent)' : 'var(--muted)';
+      el.innerHTML = `
+        <div class="pos-card open">
+          <div class="pos-header">
+            <span class="pos-sym">${pos.sym}</span>
+            <span class="pos-badge pb-open" style="color:${stagCol};border-color:${stagCol}">${stage}</span>
+          </div>
+          <div class="pos-grid">
+            <div class="pg-item"><div class="pg-lbl">エントリー</div><div class="pg-val">$${pos.price.toFixed(6)}</div></div>
+            <div class="pg-item"><div class="pg-lbl">現在値</div><div class="pg-val ${pnlC}">$${pos.currentPrice.toFixed(6)}</div></div>
+            <div class="pg-item"><div class="pg-lbl">損切り(-${s.slPercent*-1}%)</div><div class="pg-val neg-txt">$${slPrice.toFixed(6)}</div></div>
+            <div class="pg-item"><div class="pg-lbl">含み損益</div><div class="pg-val ${pnlC}">${pos.pnl>=0?'+':''}$${pos.pnl.toFixed(2)}<br><span style="font-size:10px">(${pos.pnlPct>=0?'+':''}${pos.pnlPct.toFixed(1)}%)</span></div></div>
+            <div class="pg-item"><div class="pg-lbl">AI スコア</div><div class="pg-val" style="color:var(--purple)">${pos.aiScore ?? '—'}</div></div>
+            <div class="pg-item"><div class="pg-lbl">OC スコア</div><div class="pg-val" style="color:${(pos.ocScore||0)>=70?'var(--green)':(pos.ocScore||0)>=40?'var(--gold)':'var(--red)'}">${pos.ocScore ?? '—'}</div></div>
+          </div>
+          <!-- TP stage progress -->
+          <div style="margin-top:10px;display:grid;grid-template-columns:1fr 4px 1fr 4px 1fr;gap:3px;align-items:center">
+            <div style="background:${pos.tp1Done?'rgba(0,255,136,.15)':'var(--bg2)'};border:1px solid ${pos.tp1Done?'var(--green)':'var(--border)'};border-radius:5px;padding:5px;text-align:center">
+              <div style="font-size:8px;color:var(--muted)">利確①</div>
+              <div style="font-size:10px;color:${pos.tp1Done?'var(--green)':'var(--muted)'}">+${s.tp1Pct}% ${pos.tp1Done?'✅':'⏳'}</div>
+            </div>
+            <div style="height:1px;background:var(--border)"></div>
+            <div style="background:${pos.tp2Done?'rgba(0,229,255,.15)':'var(--bg2)'};border:1px solid ${pos.tp2Done?'var(--accent)':'var(--border)'};border-radius:5px;padding:5px;text-align:center">
+              <div style="font-size:8px;color:var(--muted)">利確②</div>
+              <div style="font-size:10px;color:${pos.tp2Done?'var(--accent)':'var(--muted)'}">+${s.tp2Pct}% ${pos.tp2Done?'✅':'⏳'}</div>
+            </div>
+            <div style="height:1px;background:var(--border)"></div>
+            <div style="background:${pos.tp2Done?'rgba(189,147,249,.15)':'var(--bg2)'};border:1px solid ${pos.tp2Done?'var(--purple)':'var(--border)'};border-radius:5px;padding:5px;text-align:center">
+              <div style="font-size:8px;color:var(--muted)">TR停</div>
+              <div style="font-size:10px;color:${pos.tp2Done?'var(--purple)':'var(--muted)'}">-${s.trailingDrop}% ${pos.tp2Done?'🔔':'⏳'}</div>
+            </div>
+          </div>
+          <div class="pnl-bar" style="margin-top:8px"><div class="pnl-fill" style="width:${barPct}%;background:${barC}"></div></div>
+          <div class="pos-actions">
+            <button class="pact sell" onclick="manualClose(${i})">手動クローズ</button>
+            <button class="pact edit" onclick="showToast('SL/TP変更は設定タブから', 'info')">設定確認</button>
+          </div>
+        </div>`;
+    }
+  }
+}
+
+function renderMetrics() {
+  const totalPnL = STATE.trades.reduce((s, t) => s + t.pnl, 0);
+  const wins  = STATE.trades.filter(t => t.pnl > 0).length;
+  const total = STATE.trades.length;
+  const winPct = total ? Math.round(wins / total * 100) : null;
+  const openPnL = STATE.positions.reduce((s, p) => s + (p ? p.pnl : 0), 0);
+  const totalAsset = STATE.balance + STATE.positions.reduce((s, p) => s + (p ? p.amount + p.pnl : 0), 0);
+
+  document.getElementById('mBalance').textContent = '$' + totalAsset.toFixed(2);
+  const pnlEl = document.getElementById('mPnL');
+  pnlEl.textContent = (totalPnL >= 0 ? '+' : '') + '$' + totalPnL.toFixed(2);
+  pnlEl.style.color = totalPnL >= 0 ? 'var(--green)' : 'var(--red)';
+  document.getElementById('mPnLPct').textContent = total ? `${wins}勝${total - wins}敗` : '未取引';
+  document.getElementById('mWinRate').textContent = winPct !== null ? winPct + '%' : '—';
+  document.getElementById('mTrades').textContent = total + 'トレード';
+  const free = STATE.positions.filter(p => !p).length;
+  document.getElementById('mFreeSlot').textContent = free + '/2';
+}
+
+// ════════════════════════════════════════════════════════════
+//  HISTORY
+// ════════════════════════════════════════════════════════════
+function recordHistoryOpen(slot) {
+  // placeholder — closed in finalizeHistory
+}
+
+function finalizeHistory(slot, exitPrice, pnl, pnlPct, reason) {
+  const pos = STATE.positions[slot];
+  STATE.trades.push({
+    sym: pos.sym,
+    entry: pos.price,
+    exit: exitPrice,
+    pnl,
+    pnlPct,
+    reason,
+    time: new Date(),
+  });
+}
+
+function renderHistory() {
+  const wins   = STATE.trades.filter(t => t.pnl > 0).length;
+  const losses = STATE.trades.filter(t => t.pnl <= 0).length;
+  const totalP = STATE.trades.filter(t => t.pnl > 0).reduce((s, t) => s + t.pnl, 0);
+  const totalL = STATE.trades.filter(t => t.pnl <= 0).reduce((s, t) => s + t.pnl, 0);
+  const winR   = STATE.trades.length ? Math.round(wins / STATE.trades.length * 100) : 0;
+
+  document.getElementById('hTotalProfit').textContent = '+$' + totalP.toFixed(2);
+  document.getElementById('hTotalLoss').textContent   = '-$' + Math.abs(totalL).toFixed(2);
+  document.getElementById('hWinRate').textContent     = STATE.trades.length ? winR + '%' : '—';
+  document.getElementById('hRecord').textContent      = `${wins}勝${losses}敗`;
+  document.getElementById('hCount').textContent       = STATE.trades.length + '件';
+
+  const tbody = document.getElementById('histTable');
+  if (!STATE.trades.length) {
+    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:20px;font-size:11px">トレード履歴なし</td></tr>';
+    return;
+  }
+  tbody.innerHTML = [...STATE.trades].reverse().map(t => `
+    <tr>
+      <td style="padding:8px 10px;white-space:nowrap">
+        <span style="font-family:'Orbitron',monospace;font-size:10px;color:var(--accent)">${t.sym}</span><br>
+        <span style="font-size:8px;color:var(--muted)">${t.reason}</span>
+      </td>
+      <td style="padding:8px 10px;text-align:right;font-size:10px">$${t.entry.toFixed(6)}</td>
+      <td style="padding:8px 10px;text-align:right;font-size:10px">$${t.exit.toFixed(6)}</td>
+      <td style="padding:8px 10px;text-align:right;font-size:10px;color:${t.pnl >= 0 ? 'var(--green)' : 'var(--red)'}">
+        ${t.pnl >= 0 ? '+' : ''}$${t.pnl.toFixed(2)}<br>
+        <span style="font-size:9px">(${t.pnlPct.toFixed(1)}%)</span>
+      </td>
+      <td style="padding:8px 10px;text-align:right;font-size:9px;color:var(--muted)">${t.reason}</td>
+    </tr>`).join('');
+  buildPnLChart();
+}
+
+// ════════════════════════════════════════════════════════════
+//  CHARTS
+// ════════════════════════════════════════════════════════════
+function buildLiveChart(sym) {
+  const ctx = document.getElementById('liveChart').getContext('2d');
+  if (liveChartInst) liveChartInst.destroy();
+  const label = sym || 'DEMO';
+  const L = [], P = [], V = [];
+  let p = (COINS[sym] || { price: 0.01 }).price;
+  for (let i = 0; i < 60; i++) {
+    const d = new Date(); d.setMinutes(d.getMinutes() - 60 + i);
+    L.push(d.getHours() + ':' + String(d.getMinutes()).padStart(2,'0'));
+    p = p * (1 + (Math.random() - 0.46) * 0.04);
+    P.push(+p.toFixed(8));
+    V.push(+(Math.random() * 100 + 10).toFixed(1));
+  }
+  liveChartInst = new Chart(ctx, {
+    type: 'bar',
+    data: { labels: L, datasets: [
+      { type: 'line', label: label, data: P, borderColor: '#00e5ff', borderWidth: 1.5, tension: 0.3, pointRadius: 0, yAxisID: 'y', fill: true, backgroundColor: 'rgba(0,229,255,0.04)' },
+      { type: 'bar', label: '出来高', data: V, backgroundColor: 'rgba(255,215,0,0.2)', yAxisID: 'y2' },
+    ]},
+    options: {
+      responsive: true, maintainAspectRatio: false, animation: { duration: 400 },
+      scales: {
+        x: { grid: { color: 'rgba(28,48,72,.4)' }, ticks: { color: '#4a6a8a', maxTicksLimit: 8, font: { size: 8 } } },
+        y: { position: 'left', grid: { color: 'rgba(28,48,72,.4)' }, ticks: { color: '#00e5ff', font: { size: 8 }, maxTicksLimit: 5 } },
+        y2: { position: 'right', grid: { display: false }, ticks: { color: '#ffd700', font: { size: 8 }, maxTicksLimit: 3 } },
+      },
+      plugins: { legend: { display: false } },
+    }
+  });
+}
+
+function buildPnLChart() {
+  const ctx = document.getElementById('pnlChart');
+  if (!ctx) return;
+  if (pnlChartInst) pnlChartInst.destroy();
+  if (!STATE.trades.length) {
+    pnlChartInst = new Chart(ctx.getContext('2d'), {
+      type: 'line', data: { labels: ['開始'], datasets: [{ data: [0], borderColor: 'var(--muted)', fill: false, pointRadius: 0 }] },
+      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { ticks: { color: '#4a6a8a', font: { size: 8 } }, grid: { color: 'rgba(28,48,72,.4)' } }, y: { ticks: { color: '#4a6a8a', font: { size: 8 } }, grid: { color: 'rgba(28,48,72,.4)' } } } }
+    });
+    return;
+  }
+  let cumul = 0;
+  const labels = ['開始'];
+  const data   = [0];
+  STATE.trades.forEach((t, i) => {
+    cumul += t.pnl;
+    labels.push(t.sym);
+    data.push(+cumul.toFixed(2));
+  });
+  const colors = data.map((v, i) => i === 0 ? 'rgba(0,229,255,.5)' : v >= 0 ? 'rgba(0,255,136,.5)' : 'rgba(255,51,85,.5)');
+  pnlChartInst = new Chart(ctx.getContext('2d'), {
+    type: 'line',
+    data: { labels, datasets: [{
+      label: '累積P&L', data,
+      borderColor: cumul >= 0 ? '#00ff88' : '#ff3355',
+      borderWidth: 2, tension: 0.3, fill: true,
+      backgroundColor: cumul >= 0 ? 'rgba(0,255,136,.07)' : 'rgba(255,51,85,.07)',
+      pointBackgroundColor: colors, pointRadius: 4,
+    }]},
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      scales: {
+        x: { grid: { color: 'rgba(28,48,72,.4)' }, ticks: { color: '#4a6a8a', font: { size: 8 } } },
+        y: { grid: { color: 'rgba(28,48,72,.4)' }, ticks: { color: '#4a6a8a', font: { size: 8 } } },
+      },
+      plugins: { legend: { display: false } },
+    }
+  });
+}
+
+// ════════════════════════════════════════════════════════════
+//  SETTINGS
+// ════════════════════════════════════════════════════════════
+function toggleSetting(el) { el.classList.toggle('on'); }
+
+function updateSL(val) {
+  STATE.settings.slPercent = parseInt(val);
+  document.getElementById('slDisplay').textContent = val + '%';
+  document.getElementById('slSlider').value = val;
+  const abs = Math.abs(parseInt(val));
+  let advice;
+  if (abs <= 8)  advice = '⚠ タイトすぎ — ノイズで刈られるリスクあり';
+  else if (abs <= 15) advice = '✅ 標準的な設定 — 新規上場コインに適切';
+  else if (abs <= 25) advice = '💡 やや広め — 高ボラ銘柄向き';
+  else advice = '⚠ 広すぎ — 損失が大きくなる可能性あり';
+  document.getElementById('slAdvice').textContent = advice;
+}
+
+const DEFAULT_SETTINGS = {
+  maxListingAge:48, aiThreshold:65, rsiMin:40, rsiMax:70,
+  volMultiple:2.0, minLiquidity:100000, slPercent:-8,
+  tp1Pct:20, tp1Sell:50, tp2Pct:40, tp2Sell:25, trailingDrop:10,
+  maxPos:2, sizePercent:50, interval:5,
+  autoEntry:true, autoTP:true, autoSL:true, aiFilter:true,
+};
+
+function saveSettings() {
+  const s = STATE.settings;
+  s.maxListingAge = parseInt(document.getElementById('set-maxage').value)    || 48;
+  s.aiThreshold   = parseInt(document.getElementById('set-aithresh').value)  || 65;
+  s.rsiMin        = parseInt(document.getElementById('set-rsimin').value)    || 40;
+  s.rsiMax        = parseInt(document.getElementById('set-rsimax').value)    || 70;
+  s.volMultiple   = parseFloat(document.getElementById('set-volmul').value)  || 2.0;
+  s.minLiquidity  = (parseFloat(document.getElementById('set-liq').value)||100) * 1000;
+  s.slPercent     = parseInt(document.getElementById('slSlider').value)      || -8;
+  s.tp1Pct        = parseInt(document.getElementById('set-tp1pct').value)   || 20;
+  s.tp1Sell       = parseInt(document.getElementById('set-tp1sell').value)  || 50;
+  s.tp2Pct        = parseInt(document.getElementById('set-tp2pct').value)   || 40;
+  s.tp2Sell       = parseInt(document.getElementById('set-tp2sell').value)  || 25;
+  s.trailingDrop  = parseInt(document.getElementById('set-trail').value)    || 10;
+  s.maxPos        = parseInt(document.getElementById('set-maxpos').value)    || 2;
+  s.sizePercent   = parseInt(document.getElementById('set-size').value)      || 50;
+  s.interval      = parseInt(document.getElementById('set-interval').value)  || 5;
+  updatePreview();
+  updateTPRemain();
+  showToast('設定を保存しました ✅', 'info');
+  addLog('info', `設定保存: SL${s.slPercent}% TP①+${s.tp1Pct}%×${s.tp1Sell}%売 TP②+${s.tp2Pct}%×${s.tp2Sell}%売 TR-${s.trailingDrop}%`);
+  if (STATE.running) { stopAutoScan(); startAutoScan(); }
+}
+
+function resetSettings() {
+  Object.assign(STATE.settings, DEFAULT_SETTINGS);
+  loadSettings();
+  updatePreview();
+  updateTPRemain();
+  showToast('デフォルト設定に戻しました', 'warn');
+  addLog('warn', '設定をデフォルトにリセット');
+}
+
+function loadSettings() {
+  const s = STATE.settings;
+  const set = (id, val) => { const el = document.getElementById(id); if(el) el.value = val; };
+  set('set-maxage',   s.maxListingAge);
+  set('set-aithresh', s.aiThreshold);
+  set('set-rsimin',   s.rsiMin);
+  set('set-rsimax',   s.rsiMax);
+  set('set-volmul',   s.volMultiple);
+  set('set-liq',      s.minLiquidity / 1000);
+  set('slSlider',     s.slPercent);
+  set('set-tp1pct',   s.tp1Pct);
+  set('set-tp1sell',  s.tp1Sell);
+  set('set-tp2pct',   s.tp2Pct);
+  set('set-tp2sell',  s.tp2Sell);
+  set('set-trail',    s.trailingDrop);
+  set('set-maxpos',   s.maxPos);
+  set('set-size',     s.sizePercent);
+  set('set-interval', s.interval);
+  updateSL(s.slPercent);
+  updatePreview();
+  updateTPRemain();
+}
+
+function updatePreview() {
+  const s = STATE.settings;
+  const fmtLiq = s.minLiquidity >= 1e6 ? (s.minLiquidity/1e6).toFixed(1)+'M' : (s.minLiquidity/1e3).toFixed(0)+'K';
+  const rem1 = 100 - s.tp1Sell;
+  const rem2 = rem1 - rem1 * s.tp2Sell / 100;
+  const set = (id, v) => { const el=document.getElementById(id); if(el) el.textContent=v; };
+  set('pv-age', s.maxListingAge + 'H以内');
+  set('pv-ai',  '≥ ' + s.aiThreshold + '点');
+  set('pv-rsi', s.rsiMin + '〜' + s.rsiMax);
+  set('pv-vol', '≥ ' + s.volMultiple + 'x');
+  set('pv-liq', '≥ $' + fmtLiq);
+  set('pv-sl',  s.slPercent + '%');
+  set('pv-tp',  `①+${s.tp1Pct}%で${s.tp1Sell}%売 ②+${s.tp2Pct}%で${s.tp2Sell}%売 残りTR-${s.trailingDrop}%`);
+}
+
+function updateTPRemain() {
+  const s = STATE.settings;
+  const rem1   = 100 - s.tp1Sell;                   // 利確①後の残り
+  const sold2  = Math.round(rem1 * s.tp2Sell / 100);// 利確②で売る量
+  const remain = rem1 - sold2;                        // トレーリング行き
+  const el = document.getElementById('tpRemainPct');
+  if (el) el.textContent = remain;
+}
+
+async function checkServerConnection() {
+  const setLabel = (id, text, color) => {
+    const el = document.getElementById(id);
+    if (el) { el.textContent = text; el.style.color = color; }
+  };
+  setLabel('serverStatusLabel', '確認中...', 'var(--muted)');
+  addLog('info', 'サーバー接続確認中...');
+  try {
+    const r = await fetch(SERVER_URL + '/health', { signal: AbortSignal.timeout(8000) });
+    const d = await r.json();
+    if (d.status === 'running') {
+      APP_MODE = 'FULL';
+      setLabel('serverStatusLabel', '✅ 接続成功', 'var(--green)');
+      setLabel('serverModeLabel', 'FULL MODE', 'var(--green)');
+      setLabel('serverBitgetLabel', d.services?.bitget ? '✅ 有効' : '❌ 未設定', d.services?.bitget ? 'var(--green)' : 'var(--red)');
+      setLabel('serverClaudeLabel', d.services?.claude ? '✅ 有効' : '❌ 未設定', d.services?.claude ? 'var(--green)' : 'var(--red)');
+      setLabel('serverCmcLabel', d.services?.coinmarketcap ? '✅ 有効' : '❌ 未設定', d.services?.coinmarketcap ? 'var(--green)' : 'var(--red)');
+      const ml = document.getElementById('modeLabel');
+      if (ml) { ml.textContent='FULL'; ml.style.background='rgba(0,255,136,.15)'; ml.style.borderColor='var(--green)'; ml.style.color='var(--green)'; }
+      addLog('info', '✅ Railway接続成功 — FULLモード確認');
+      fetchRealBalance();
+    }
+  } catch(e) {
+    APP_MODE = 'DEMO';
+    setLabel('serverStatusLabel', '❌ 未接続', 'var(--red)');
+    setLabel('serverModeLabel', 'DEMO MODE', 'var(--muted)');
+    setLabel('serverBitgetLabel', '—', 'var(--muted)');
+    setLabel('serverClaudeLabel', '—', 'var(--muted)');
+    setLabel('serverCmcLabel', '—', 'var(--muted)');
+    addLog('warn', 'Railwayサーバー未接続 — DEMOモードで動作');
+  }
+}
+
+function testApiConnection() {
+  checkServerConnection();
+}
+
+// ════════════════════════════════════════════════════════════
+//  月次レポート生成
+// ════════════════════════════════════════════════════════════
+async function generateMonthlyReport() {
+  const trades = STATE.trades;
+  if (!trades.length) {
+    showToast('トレード履歴がありません', 'warn');
+    return;
+  }
+
+  const area = document.getElementById('monthlyReportArea');
+  area.textContent = '🤖 Claude AI がレポートを生成中...';
+  area.style.color = 'var(--accent)';
+
+  // 今月のトレードを抽出
+  const now   = new Date();
+  const month = now.getMonth();
+  const year  = now.getFullYear();
+  const monthTrades = trades.filter(t => {
+    const d = new Date(t.closeTime || t.time || 0);
+    return d.getMonth() === month && d.getFullYear() === year;
+  });
+  const targetTrades = monthTrades.length ? monthTrades : trades;
+
+  // 統計計算
+  const wins     = targetTrades.filter(t => (t.pnl || 0) > 0);
+  const losses   = targetTrades.filter(t => (t.pnl || 0) <= 0);
+  const totalPnl = targetTrades.reduce((s, t) => s + (t.pnl || 0), 0);
+  const winRate  = targetTrades.length ? (wins.length / targetTrades.length * 100).toFixed(1) : 0;
+  const avgWin   = wins.length   ? wins.reduce((s,t)=>s+(t.pnl||0),0)/wins.length     : 0;
+  const avgLoss  = losses.length ? losses.reduce((s,t)=>s+(t.pnl||0),0)/losses.length : 0;
+  const bestTrade  = targetTrades.reduce((a,b)=>((a.pnl||0)>(b.pnl||0)?a:b), {});
+  const worstTrade = targetTrades.reduce((a,b)=>((a.pnl||0)<(b.pnl||0)?a:b), {});
+
+  const monthLabel = `${year}年${month+1}月`;
+  document.getElementById('reportMonth').textContent = monthLabel;
+
+  // Railwayサーバー経由でClaude AIにレポート生成依頼
+  if (APP_MODE === 'FULL') {
+    try {
+      const prompt = `あなたは暗号通貨自動売買システムの月次レポートアナリストです。
+以下のトレード実績データから、投資家向けの月次レポートを生成してください。
+
+【${monthLabel} トレード実績】
+総トレード数: ${targetTrades.length}件
+勝率: ${winRate}%（${wins.length}勝${losses.length}敗）
+総損益: ${totalPnl >= 0 ? '+' : ''}$${totalPnl.toFixed(2)}
+平均利益: +$${avgWin.toFixed(2)}
+平均損失: $${avgLoss.toFixed(2)}
+最良トレード: ${bestTrade.sym || '—'} ${bestTrade.pnl >= 0 ? '+' : ''}$${(bestTrade.pnl||0).toFixed(2)}
+最悪トレード: ${worstTrade.sym || '—'} $${(worstTrade.pnl||0).toFixed(2)}
+取引銘柄: ${[...new Set(targetTrades.map(t=>t.sym))].join(', ')}
+
+【レポート形式】
+① 今月のサマリー（2文）
+② 良かった点（1〜2点）
+③ 改善点（1〜2点）
+④ 来月への提言（1文）
+⑤ 総合評価: A/B/C/D
+
+300文字以内・日本語で作成してください。`;
+
+      const r = await fetch(SERVER_URL + '/api/claude/analyze', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ symbol: 'MONTHLY_REPORT', customPrompt: prompt })
+      });
+      const d = await r.json();
+      if (d.success && d.text) {
+        area.style.color = 'var(--text)';
+        area.innerHTML = d.text.split('\n').join('<br>');
+        addLog('info', `月次レポート生成完了: ${monthLabel}`);
+        return;
+      }
+    } catch(e) {
+      addLog('warn', 'AIレポート生成失敗: ' + e.message);
+    }
+  }
+
+  // DEMOモードまたは失敗時はローカル生成
+  area.style.color = 'var(--text)';
+  area.innerHTML = `<b>${monthLabel} 月次レポート</b><br>
+総トレード: ${targetTrades.length}件 | 勝率: ${winRate}%<br>
+総損益: <span style="color:${totalPnl>=0?'var(--green)':'var(--red)'}">
+${totalPnl>=0?'+':''}$${totalPnl.toFixed(2)}</span><br>
+平均利益: +$${avgWin.toFixed(2)} / 平均損失: $${avgLoss.toFixed(2)}<br>
+最良: ${bestTrade.sym||'—'}(${bestTrade.pnl>=0?'+':''}$${(bestTrade.pnl||0).toFixed(2)})`;
+  addLog('info', `月次レポート生成完了（ローカル）: ${monthLabel}`);
+}
+
+// ════════════════════════════════════════════════════════════
+//  CSV出力
+// ════════════════════════════════════════════════════════════
+function exportCSV() {
+  const trades = STATE.trades;
+  if (!trades.length) {
+    showToast('出力するトレード履歴がありません', 'warn');
+    return;
+  }
+
+  const header = ['日時', '銘柄', '入値($)', '出値($)', '数量', '損益($)', '損益(%)', '決済理由'];
+  const rows = trades.map(t => [
+    t.closeTime || t.time || '',
+    t.sym || '',
+    (t.entryPrice || t.price || 0).toFixed(6),
+    (t.exitPrice  || t.closePrice || 0).toFixed(6),
+    (t.qty  || 0).toFixed(4),
+    (t.pnl  || 0).toFixed(2),
+    (t.pnlPct || 0).toFixed(2),
+    t.reason || '',
+  ]);
+
+  const csv = [header, ...rows].map(r => r.join(',')).join('\n');
+  const bom  = '﻿'; // Excel用BOM
+  const blob = new Blob([bom + csv], { type: 'text/csv;charset=utf-8;' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  const now  = new Date();
+  a.href     = url;
+  a.download = `autotrade_${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+  showToast('CSV出力完了', 'buy');
+  addLog('info', `CSV出力: ${trades.length}件`);
+}
+
+// ════════════════════════════════════════════════════════════
+//  COUNTDOWN
+// ════════════════════════════════════════════════════════════
+function startCountdown() {
+  setInterval(() => {
+    if (STATE.running) {
+      STATE.scanCountdown = Math.max(0, STATE.scanCountdown - 1);
+      if (STATE.scanCountdown === 0) STATE.scanCountdown = STATE.settings.interval * 60;
+    }
+    const m = Math.floor(STATE.scanCountdown / 60);
+    const s = STATE.scanCountdown % 60;
+    document.getElementById('mNextScan').textContent = m + ':' + String(s).padStart(2, '0');
+  }, 1000);
+}
+
+// ════════════════════════════════════════════════════════════
+//  LOG
+// ════════════════════════════════════════════════════════════
+function addLog(type, msg) {
+  const now = new Date().toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  STATE.logs.unshift({ type, msg, time: now });
+  if (STATE.logs.length > 100) STATE.logs.pop();
+  const box = document.getElementById('logBox');
+  if (!box) return;
+  box.innerHTML = STATE.logs.slice(0, 40).map(l =>
+    `<div class="log-line"><span class="log-time">${l.time}</span><span class="log-${l.type}">${l.msg}</span></div>`
+  ).join('');
+}
+
+function clearLog() { STATE.logs = []; document.getElementById('logBox').innerHTML = ''; }
+
+// ════════════════════════════════════════════════════════════
+//  MODAL / TOAST
+// ════════════════════════════════════════════════════════════
+function closeModal() {
+  document.getElementById('modal').classList.remove('open');
+  STATE.pendingOrder = null;
+}
+function overlayClick(e) { if (e.target === document.getElementById('modal')) closeModal(); }
+
+let toastTimer = null;
+function showToast(msg, type = 'info') {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast t-' + type + ' show';
+  if (toastTimer) clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 2500);
+}
+</script>
+</body>
+</html>
